@@ -1016,6 +1016,11 @@ function getRelationships(filterFn) {
 
 // ===================== FORMATTING =====================
 const EGP_SCALE = 1e9;
+function refPeriodLabel() {
+  const ref = (STATE && STATE.fRefMonth != null) ? STATE.fRefMonth : NP - 1;
+  return LOOKUPS.periods[ref] || '';
+}
+
 function fmtLCV(v) {
   if(v >= 1e9) return (v/1e9).toFixed(2) + 'B';
   if(v >= 1e6) return (v/1e6).toFixed(1) + 'M';
