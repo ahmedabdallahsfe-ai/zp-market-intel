@@ -782,19 +782,7 @@ table tr:last-child td{border-bottom:none}
       </select></div>
     <div class="tb-filter"><label>Corp:</label>
       <select id="f-corp" onchange="applyFilters()"><option value="">All</option></select></div>
-    <div class="tb-filter" style="position:relative">
-      <label>DM1:</label>
-      <div class="ms-wrap" id="f-dm1-wrap" tabindex="0" onclick="toggleDm1Dd(event)">
-        <span id="f-dm1-label">All Markets</span><span style="margin-left:4px;opacity:.5;font-size:10px">▾</span>
-        <div class="ms-dd" id="f-dm1-dd" style="display:none" onclick="event.stopPropagation()">
-          <div style="padding:5px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-            <label style="cursor:pointer;font-size:12px;font-weight:600"><input type="checkbox" id="f-dm1-all" checked onchange="dm1AllToggle(this)"> &nbsp;All Markets</label>
-            <span style="font-size:10px;color:var(--acc5);cursor:pointer;padding:2px 6px" onclick="dm1ClearAll()">Clear</span>
-          </div>
-          <div id="f-dm1-list" style="max-height:260px;overflow-y:auto;padding:4px 0"></div>
-        </div>
-      </div>
-    </div>
+    <div class="tb-filter"><label>DM1:</label><select id="f-dm1" onchange="applyFilters()"><option value="">All Markets</option></select></div>
     <div class="tb-filter"><label>ATC4:</label>
       <select id="f-atc4" onchange="applyFilters()"><option value="">All</option></select></div>
     <div class="tb-filter"><label>DM2:</label>
@@ -4991,6 +4979,7 @@ function applyFilters() {
   const tr   = document.getElementById('f-timerange').value;
   STATE.fCorp = corp ? parseInt(corp) : -1;
   STATE.fDm1  = dm1  ? parseInt(dm1)  : -1;
+  STATE.fDm1Sel = dm1 ? new Set([parseInt(dm1)]) : new Set();
   STATE.fDm2  = dm2  ? parseInt(dm2)  : -1;
   STATE.fAtc4 = atc4 ? parseInt(atc4) : -1;
   STATE.timeRange = tr;
@@ -5129,6 +5118,7 @@ function buildCascadeIndex() {
 }
 
 function rebuildSelectFull(sel, lookup) {
+  if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">All</option>';
   lookup.forEach((n,i) => {
