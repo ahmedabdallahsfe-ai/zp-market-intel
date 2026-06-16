@@ -5196,16 +5196,40 @@ function cascadeFromDm2() {
   applyFilters();
 }
 
+function populateLineDropdown(buIdx) {
+  const sel = document.getElementById('f-line');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">All Lines</option>' +
+    LOOKUPS.lines.map((l, i) => `<option value="${i}">${l}</option>`).join('');
+  sel.value = '';
+  STATE.fLineIdx = -1;
+}
+
+function buChanged() {
+  const val = document.getElementById('f-bu')?.value;
+  STATE.fBUIdx = (val !== '' && val !== undefined) ? parseInt(val) : -1;
+  populateLineDropdown(STATE.fBUIdx);
+  STATE.rendered.clear();
+  renderSection(STATE.section);
+}
+
+function lineChanged() {
+  const val = document.getElementById('f-line')?.value;
+  STATE.fLineIdx = (val !== '' && val !== undefined) ? parseInt(val) : -1;
+  STATE.rendered.clear();
+  renderSection(STATE.section);
+}
+
 function populateFilters() {
   rebuildSelectFull(document.getElementById('f-corp'), LOOKUPS.corps);
   rebuildSelectFull(document.getElementById('f-dm1'),  LOOKUPS.dm1s);
   rebuildSelectFull(document.getElementById('f-atc4'), LOOKUPS.atc4s);
   rebuildSelectFull(document.getElementById('f-dm2'),  LOOKUPS.dm2s);
-  // BU dropdown — from real CSV column
-  const buOpts = '<option value="">All BUs</option>' +
-    LOOKUPS.bus.map(b=>`<option value="${b}">${b}</option>`).join('');
-  document.querySelectorAll('#f-bu').forEach(el=>el.innerHTML=buOpts);
-  populateLineDropdown('');
+  // BU dropdown — index-based values to match flat[BUCI] integers
+  const buOpts = '<option value="">All BU</option>' +
+    LOOKUPS.bus.map((b, i) => `<option value="${i}">${b}</option>`).join('');
+  document.querySelectorAll('#f-bu').forEach(el => el.innerHTML = buOpts);
+  populateLineDropdown(-1);
   // As Of dropdown — all periods
   const lastIdx = LOOKUPS.periods.length - 1;
   const moOpts = LOOKUPS.periods.map((p,i)=>`<option value="${i}">${p}</option>`).join('');
