@@ -758,6 +758,7 @@ table tr:last-child td{border-bottom:none}
     <div class="nav-item" onclick="showSection('scoring')"><span class="nav-icon">💡</span><span class="nav-label">Opportunity Scoring</span></div>
     <div class="nav-item" onclick="showSection('forecast')"><span class="nav-icon">🔮</span><span class="nav-label">Forecasting Center</span></div>
     <div class="nav-item" onclick="showSection('alerts')"><span class="nav-icon">🚨</span><span class="nav-label">Alert Center</span></div>
+    <div class="nav-item" onclick="showSection('insights')"><span class="nav-icon">🤖</span><span class="nav-label">AI Insights</span></div>
     <div class="nav-item" onclick="showSection('recommendations')"><span class="nav-icon">📋</span><span class="nav-label">Exec Recommendations</span></div>
   </nav>
   <div id="sb-footer">
@@ -781,7 +782,19 @@ table tr:last-child td{border-bottom:none}
       </select></div>
     <div class="tb-filter"><label>Corp:</label>
       <select id="f-corp" onchange="applyFilters()"><option value="">All</option></select></div>
-    <div class="tb-filter"><label>DM1:</label><select id="f-dm1" onchange="cascadeFromDm1()"><option value="">All Markets</option></select></div>
+    <div class="tb-filter" style="position:relative">
+      <label>DM1:</label>
+      <div class="ms-wrap" id="f-dm1-wrap" tabindex="0" onclick="toggleDm1Dd(event)">
+        <span id="f-dm1-label">All Markets</span><span style="margin-left:4px;opacity:.5;font-size:10px">▾</span>
+        <div class="ms-dd" id="f-dm1-dd" style="display:none" onclick="event.stopPropagation()">
+          <div style="padding:5px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <label style="cursor:pointer;font-size:12px;font-weight:600"><input type="checkbox" id="f-dm1-all" checked onchange="dm1AllToggle(this)"> &nbsp;All Markets</label>
+            <span style="font-size:10px;color:var(--acc5);cursor:pointer;padding:2px 6px" onclick="dm1ClearAll()">Clear</span>
+          </div>
+          <div id="f-dm1-list" style="max-height:260px;overflow-y:auto;padding:4px 0"></div>
+        </div>
+      </div>
+    </div>
     <div class="tb-filter"><label>ATC4:</label>
       <select id="f-atc4" onchange="applyFilters()"><option value="">All</option></select></div>
     <div class="tb-filter"><label>DM2:</label>
@@ -820,6 +833,7 @@ table tr:last-child td{border-bottom:none}
     <div id="s-scoring" class="section"></div>
     <div id="s-forecast" class="section"></div>
     <div id="s-alerts" class="section"></div>
+    <div id="s-insights" class="section"></div>
     <div id="s-recommendations" class="section"></div>
   </div>
 </div>
@@ -1611,35 +1625,6 @@ function renderCorpIntel() {
   const prodHHI = prodList2.reduce((s,p)=>s+Math.pow(p.share*100,2),0);
   const prodEviColor = mktMatGrowth >= 0 ? '#2fc97e' : '#e05c5c';
 
-  // Pre-compute commentary strings (avoids nested template literals)
-  const _rankNarr     = zetaRankNarr ? '<p>'+zetaRankNarr+'</p>' : '';
-  const _shareFlow    = shareFlowNarrative ? '<p>'+shareFlowNarrative+'</p>' : '';
-  const _outgrowNames = outgrowZeta.slice(0,4).map(x=>''+((LOOKUPS.corps[x.c]||'').substring(0,16))+' (EVI '+x.EVI+')').join(', ');
-  const _outgrow      = outgrowZeta.length>0
-    ? '<p><strong>'+outgrowZeta.length+' competitor'+(outgrowZeta.length>1?'s':'')+'</strong> outgrowing Zeta (excl. launch-boosted): '+_outgrowNames+(outgrowZeta.length>4?' + more':'')+' — monitor closely.</p>'
-    : '<p>✅ No non-launch-boosted competitor is outgrowing Zeta in the selected period.</p>';
-  const _newEntrantNames = allCorps.filter(x=>x.isNew).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,16)).join(', ');
-  const _entrants     = newEntrants>0
-    ? '<p>🆕 <strong>'+newEntrants+' new market entrant'+(newEntrants>1?'s':'')+'</strong> detected: '+_newEntrantNames+(newEntrants>3?' + more':'')+'. Monitor trajectory.</p>'
-    : '';
-  const _launchCorps  = allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX);
-  const _launchNames  = _launchCorps.slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,14)).join(', ');
-  const _launch       = _launchCorps.length>0
-    ? '<p>⚠️ <strong>'+_launchCorps.length+' corp'+(_launchCorps.length>1?'s':'')+'</strong> showing launch-boosted growth (>800% growth, near-zero prior period) — excluded from threat EVI calculations: '+_launchNames+'.</p>'
-    : '';
-  const _mktStructure = hhi>2500?'High concentration — limited room for new players.':hhi>1500?'Moderate concentration — competitive dynamics active.':'Fragmented market — significant opportunity for share gains.';
-
-  // Additional pre-computed vars for nested template avoidance
-  const _dm1TitleSuffix = activeDm1!==null
-    ? ' — <span style="color:var(--acc2);font-size:clamp(13px,1vw,16px)">'+(LOOKUPS.dm1s[activeDm1]||'')+'</span>'
-    : '';
-  const _dm1FilterSpan = activeDm1!==null
-    ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:rgba(54,201,148,.15);border:1px solid var(--acc2);color:var(--acc2);font-size:12px;font-weight:600">📍 '+(LOOKUPS.dm1s[activeDm1]||'').substring(0,32)+'</span>'
-    : '<span style="font-size:12px;color:var(--txt3)">Select DM1 in topbar to filter by market</span>';
-  const _newEntrantCards = allCorps.filter(x=>x.isNew).slice(0,6).map(x=>'<div class="kpi-card red"><div class="kpi-label">New Player</div><div class="kpi-value" style="font-size:clamp(12px,1vw,16px)">'+(LOOKUPS.corps[x.c]||'').substring(0,20)+'</div><div class="kpi-sub">'+fmtLCV(x.cur)+' | Rank #'+x.rankCur+'</div><div><span class="badge badge-down">New entrant</span></div></div>').join('');
-  const _newEntrantsPanel = newEntrants>0
-    ? '<div class="zeta-layer-lbl">🆕 New Entrants</div><div class="kpi-grid">'+_newEntrantCards+'</div>'
-    : '';
   const h = `
   <div class="section-title">🏢 Corporation Intelligence</div>
   <div class="section-sub" style="display:flex;align-items:center;gap:10px">
@@ -1963,24 +1948,6 @@ function renderCorpGrowth() {
 
   // EVI color
   const eviCol = corpEVI>=100?'#2fc97e':'#e05c5c';
-
-  // Pre-compute commentary strings (avoids nested template literals)
-  const _rankNarr     = zetaRankNarr ? '<p>'+zetaRankNarr+'</p>' : '';
-  const _shareFlow    = shareFlowNarrative ? '<p>'+shareFlowNarrative+'</p>' : '';
-  const _outgrowNames = outgrowZeta.slice(0,4).map(x=>''+((LOOKUPS.corps[x.c]||'').substring(0,16))+' (EVI '+x.EVI+')').join(', ');
-  const _outgrow      = outgrowZeta.length>0
-    ? '<p><strong>'+outgrowZeta.length+' competitor'+(outgrowZeta.length>1?'s':'')+'</strong> outgrowing Zeta (excl. launch-boosted): '+_outgrowNames+(outgrowZeta.length>4?' + more':'')+' — monitor closely.</p>'
-    : '<p>✅ No non-launch-boosted competitor is outgrowing Zeta in the selected period.</p>';
-  const _newEntrantNames = allCorps.filter(x=>x.isNew).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,16)).join(', ');
-  const _entrants     = newEntrants>0
-    ? '<p>🆕 <strong>'+newEntrants+' new market entrant'+(newEntrants>1?'s':'')+'</strong> detected: '+_newEntrantNames+(newEntrants>3?' + more':'')+'. Monitor trajectory.</p>'
-    : '';
-  const _launchCorps  = allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX);
-  const _launchNames  = _launchCorps.slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,14)).join(', ');
-  const _launch       = _launchCorps.length>0
-    ? '<p>⚠️ <strong>'+_launchCorps.length+' corp'+(_launchCorps.length>1?'s':'')+'</strong> showing launch-boosted growth (>800% growth, near-zero prior period) — excluded from threat EVI calculations: '+_launchNames+'.</p>'
-    : '';
-  const _mktStructure = hhi>2500?'High concentration — limited room for new players.':hhi>1500?'Moderate concentration — competitive dynamics active.':'Fragmented market — significant opportunity for share gains.';
 
   const h = `
   <div class="section-title">📈 Corporation Growth Drivers</div>
@@ -2414,24 +2381,6 @@ function renderProductIntel() {
   const outperformers = prods.filter(p=>p.evi>=110).length;
   const underperformers = prods.filter(p=>p.evi<90).length;
 
-  // Pre-compute commentary strings (avoids nested template literals)
-  const _rankNarr     = zetaRankNarr ? '<p>'+zetaRankNarr+'</p>' : '';
-  const _shareFlow    = shareFlowNarrative ? '<p>'+shareFlowNarrative+'</p>' : '';
-  const _outgrowNames = outgrowZeta.slice(0,4).map(x=>''+((LOOKUPS.corps[x.c]||'').substring(0,16))+' (EVI '+x.EVI+')').join(', ');
-  const _outgrow      = outgrowZeta.length>0
-    ? '<p><strong>'+outgrowZeta.length+' competitor'+(outgrowZeta.length>1?'s':'')+'</strong> outgrowing Zeta (excl. launch-boosted): '+_outgrowNames+(outgrowZeta.length>4?' + more':'')+' — monitor closely.</p>'
-    : '<p>✅ No non-launch-boosted competitor is outgrowing Zeta in the selected period.</p>';
-  const _newEntrantNames = allCorps.filter(x=>x.isNew).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,16)).join(', ');
-  const _entrants     = newEntrants>0
-    ? '<p>🆕 <strong>'+newEntrants+' new market entrant'+(newEntrants>1?'s':'')+'</strong> detected: '+_newEntrantNames+(newEntrants>3?' + more':'')+'. Monitor trajectory.</p>'
-    : '';
-  const _launchCorps  = allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX);
-  const _launchNames  = _launchCorps.slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,14)).join(', ');
-  const _launch       = _launchCorps.length>0
-    ? '<p>⚠️ <strong>'+_launchCorps.length+' corp'+(_launchCorps.length>1?'s':'')+'</strong> showing launch-boosted growth (>800% growth, near-zero prior period) — excluded from threat EVI calculations: '+_launchNames+'.</p>'
-    : '';
-  const _mktStructure = hhi>2500?'High concentration — limited room for new players.':hhi>1500?'Moderate concentration — competitive dynamics active.':'Fragmented market — significant opportunity for share gains.';
-
   const h = `
   <div class="section-title">📦 Product Intelligence</div>
   <div class="section-sub" style="display:flex;align-items:center;gap:10px">
@@ -2548,194 +2497,216 @@ function renderProductIntel() {
 <script>
 // ===================== BCG MATRIX =====================
 function renderBCG() {
-  // ── Periods ────────────────────────────────────────────────────────────────
-  const ref = (STATE && STATE.fRefMonth != null) ? STATE.fRefMonth : NP-1;
-  const all = Array.from({length:NP},(_,i)=>i);
-  // Current MAT: last 12 months
-  const curPidxs  = new Set(all.filter(i=>i<=ref && i>ref-12));
-  // 3-year-ago MAT: 12 months ending 36 months before ref
-  const base3yIdx = new Set(all.filter(i=>i<=ref-36 && i>ref-48));
+  // ── Reference period ────────────────────────────────────────────────────────
+  const ref = (STATE && STATE.fRefMonth != null) ? STATE.fRefMonth : NP - 1;
   const cagrYears = 3;
 
-  // ── Aggregate DM1 market totals (ALL corporations) ─────────────────────────
-  const dm1CurAll  = new Map();  // d1 → {lcv,su}  (current MAT)
-  const dm1BaseAll = new Map();  // d1 → {lcv,su}  (3Y-ago MAT)
+  // Period index sets
+  const curSet  = new Set(); // current MAT: ref-11 .. ref
+  const baseSet = new Set(); // 3Y-ago MAT: ref-47 .. ref-36
+  for (let i = 0; i < NP; i++) {
+    if (i <= ref && i > ref - 12)  curSet.add(i);
+    if (i <= ref - 36 && i > ref - 48) baseSet.add(i);
+  }
+
+  // ── Aggregate DM1 market totals — ALL corporations ───────────────────────────
+  const dm1Cur  = new Map(); // d1 → {lcv, su}
+  const dm1Base = new Map();
   const N = flat.length;
-  for(let i=0;i<N;i+=10){
-    const d1=flat[i+D1I], t=flat[i+TI], lcv=flat[i+LI], su=flat[i+SI];
-    if(curPidxs.has(t)){
-      if(!dm1CurAll.has(d1)) dm1CurAll.set(d1,{lcv:0,su:0});
-      const v=dm1CurAll.get(d1); v.lcv+=lcv; v.su+=su;
+  for (let i = 0; i < N; i += 10) {
+    const d1 = flat[i + D1I], t = flat[i + TI];
+    const lcv = flat[i + LI],  su = flat[i + SI];
+    if (curSet.has(t)) {
+      if (!dm1Cur.has(d1))  dm1Cur.set(d1, {lcv:0, su:0});
+      const v = dm1Cur.get(d1);  v.lcv += lcv; v.su += su;
     }
-    if(base3yIdx.has(t)){
-      if(!dm1BaseAll.has(d1)) dm1BaseAll.set(d1,{lcv:0,su:0});
-      const v=dm1BaseAll.get(d1); v.lcv+=lcv; v.su+=su;
+    if (baseSet.has(t)) {
+      if (!dm1Base.has(d1)) dm1Base.set(d1, {lcv:0, su:0});
+      const v = dm1Base.get(d1); v.lcv += lcv; v.su += su;
     }
   }
 
-  // ── 3Y CAGR per DM1 ────────────────────────────────────────────────────────
-  const dm1CAGR = new Map();  // d1 → {lcv:%,su:%}
-  dm1CurAll.forEach((cur,d1)=>{
-    const base=dm1BaseAll.get(d1)||{lcv:0,su:0};
-    const lcvCAGR=base.lcv>0?(Math.pow(cur.lcv/base.lcv,1/cagrYears)-1)*100:0;
-    const suCAGR =base.su >0?(Math.pow(cur.su /base.su ,1/cagrYears)-1)*100:0;
-    dm1CAGR.set(d1,{lcv:lcvCAGR,su:suCAGR});
+  // ── 3Y CAGR per DM1 ─────────────────────────────────────────────────────────
+  const dm1CAGR = new Map(); // d1 → {lcv:%, su:%}
+  dm1Cur.forEach((cur, d1) => {
+    const base = dm1Base.get(d1) || {lcv:0, su:0};
+    const lcvCAGR = base.lcv > 0 ? (Math.pow(cur.lcv / base.lcv, 1/cagrYears) - 1) * 100 : 0;
+    const suCAGR  = base.su  > 0 ? (Math.pow(cur.su  / base.su,  1/cagrYears) - 1) * 100 : 0;
+    dm1CAGR.set(d1, {lcv: lcvCAGR, su: suCAGR});
   });
 
-  // ── Find Zeta corporation index ─────────────────────────────────────────────
-  const zetaCorpIdx = LOOKUPS.corps.findIndex(v=>v&&v.toUpperCase().includes('ZETA'));
+  // ── Find Zeta corp index ─────────────────────────────────────────────────────
+  const zetaIdx = LOOKUPS.corps.findIndex(v => v && v.toUpperCase().includes('ZETA'));
 
-  // ── Aggregate Zeta products per (product × DM1) and DM1 leader per product ─
-  const zetaProdKey = new Map();   // "p_d1" → {p,d1,lcv,su}
-  const dm1ProdMax  = new Map();   // d1 → {maxLcv, maxSu}  across ALL corporations
+  // ── Max product value per DM1 (all corps) ────────────────────────────────────
+  const prodTotals = new Map(); // "p_d1" → {lcv, su}
+  for (let i = 0; i < N; i += 10) {
+    if (!curSet.has(flat[i + TI])) continue;
+    const pk = flat[i + PI] + '_' + flat[i + D1I];
+    if (!prodTotals.has(pk)) prodTotals.set(pk, {lcv:0, su:0});
+    const v = prodTotals.get(pk);
+    v.lcv += flat[i + LI]; v.su += flat[i + SI];
+  }
+  const dm1Max = new Map(); // d1 → {maxLcv, maxSu}
+  prodTotals.forEach((v, pk) => {
+    const d1 = parseInt(pk.split('_')[1]);
+    if (!dm1Max.has(d1)) dm1Max.set(d1, {maxLcv:0, maxSu:0});
+    const mx = dm1Max.get(d1);
+    if (v.lcv > mx.maxLcv) mx.maxLcv = v.lcv;
+    if (v.su  > mx.maxSu)  mx.maxSu  = v.su;
+  });
 
-  for(let i=0;i<N;i+=10){
-    const c=flat[i+CI],p=flat[i+PI],d1=flat[i+D1I],t=flat[i+TI];
-    const lcv=flat[i+LI],su=flat[i+SI];
-    if(!curPidxs.has(t)) continue;
-
-    // Track max product value in each DM1 (for RMS denominator)
-    if(!dm1ProdMax.has(d1)) dm1ProdMax.set(d1,{maxLcv:0,maxSu:0});
-    const mx=dm1ProdMax.get(d1);
-    // Accumulate per product within DM1
-    const pk=p+'_'+d1;
-    if(!dm1ProdMax._tmp) dm1ProdMax._tmp=new Map();
-    if(!dm1ProdMax._tmp.has(pk)) dm1ProdMax._tmp.set(pk,{lcv:0,su:0});
-    const pv=dm1ProdMax._tmp.get(pk); pv.lcv+=lcv; pv.su+=su;
-
-    // Zeta products
-    if(c===zetaCorpIdx){
-      if(!zetaProdKey.has(pk)) zetaProdKey.set(pk,{p,d1,lcv:0,su:0});
-      const zv=zetaProdKey.get(pk); zv.lcv+=lcv; zv.su+=su;
-    }
+  // ── Zeta products per DM1 ────────────────────────────────────────────────────
+  const zetaKeys = new Map(); // "p_d1" → {p, d1, lcv, su}
+  for (let i = 0; i < N; i += 10) {
+    if (flat[i + CI] !== zetaIdx) continue;
+    if (!curSet.has(flat[i + TI])) continue;
+    const pk = flat[i + PI] + '_' + flat[i + D1I];
+    if (!zetaKeys.has(pk)) zetaKeys.set(pk, {p: flat[i+PI], d1: flat[i+D1I], lcv:0, su:0});
+    const v = zetaKeys.get(pk);
+    v.lcv += flat[i + LI]; v.su += flat[i + SI];
   }
 
-  // Compute actual DM1 leader values from accumulated product totals
-  if(dm1ProdMax._tmp){
-    dm1ProdMax._tmp.forEach((pv,pk)=>{
-      const d1=parseInt(pk.split('_')[1]);
-      if(!dm1ProdMax.has(d1)) dm1ProdMax.set(d1,{maxLcv:0,maxSu:0});
-      const mx=dm1ProdMax.get(d1);
-      if(pv.lcv>mx.maxLcv) mx.maxLcv=pv.lcv;
-      if(pv.su >mx.maxSu ) mx.maxSu =pv.su;
-    });
-  }
-
-  // ── Build bcgData array ─────────────────────────────────────────────────────
+  // ── Build BCG data points ────────────────────────────────────────────────────
   const bcgData = [];
-  zetaProdKey.forEach((v,pk)=>{
-    const {p,d1,lcv,su}=v;
-    if(lcv<=0 && su<=0) return;
-    const mx  = dm1ProdMax.get(d1)||{maxLcv:1,maxSu:1};
-    const rmsLcv = mx.maxLcv>0 ? lcv/mx.maxLcv : 0;
-    const rmsSu  = mx.maxSu >0 ? su /mx.maxSu  : 0;
-    const cagr   = dm1CAGR.get(d1)||{lcv:0,su:0};
-    bcgData.push({p,d1,lcv,su,rmsLcv,rmsSu,
-      dm1CAGR_lcv:cagr.lcv, dm1CAGR_su:cagr.su,
-      prodName:(LOOKUPS.prods[p]||'').substring(0,24),
-      dm1Name :(LOOKUPS.dm1s[d1]||'').substring(0,22)
+  zetaKeys.forEach((v) => {
+    const {p, d1, lcv, su} = v;
+    if (lcv <= 0 && su <= 0) return;
+    const mx   = dm1Max.get(d1)   || {maxLcv:1, maxSu:1};
+    const cagr = dm1CAGR.get(d1)  || {lcv:0, su:0};
+    bcgData.push({
+      p, d1, lcv, su,
+      rmsLcv: mx.maxLcv > 0 ? lcv / mx.maxLcv : 0,
+      rmsSu:  mx.maxSu  > 0 ? su  / mx.maxSu  : 0,
+      cagrLcv: cagr.lcv,
+      cagrSu:  cagr.su,
+      prodName: (LOOKUPS.prods[p]  || '').substring(0, 24),
+      dm1Name:  (LOOKUPS.dm1s[d1]  || '').substring(0, 22)
     });
   });
-  bcgData.sort((a,b)=>b.lcv-a.lcv);
+  bcgData.sort((a, b) => b.lcv - a.lcv);
 
-  // ── Weighted market CAGR (Zeta's DM1 universe only) ─────────────────────────
-  const zetaDm1s=new Set(bcgData.map(x=>x.d1));
-  let totLcvCur=0,totSuCur=0,totLcvBase=0,totSuBase=0;
-  zetaDm1s.forEach(d1=>{
-    const cur =dm1CurAll.get(d1) ||{lcv:0,su:0};
-    const base=dm1BaseAll.get(d1)||{lcv:0,su:0};
-    totLcvCur+=cur.lcv; totSuCur+=cur.su;
-    totLcvBase+=base.lcv; totSuBase+=base.su;
+  // ── Weighted market CAGR across Zeta's DM1 universe ─────────────────────────
+  const zetaDm1s = new Set(bcgData.map(x => x.d1));
+  let totLcvCur=0, totSuCur=0, totLcvBase=0, totSuBase=0;
+  zetaDm1s.forEach(d1 => {
+    const c = dm1Cur.get(d1)  || {lcv:0, su:0};
+    const b = dm1Base.get(d1) || {lcv:0, su:0};
+    totLcvCur  += c.lcv; totSuCur  += c.su;
+    totLcvBase += b.lcv; totSuBase += b.su;
   });
-  const mktCAGR_lcv=totLcvBase>0?(Math.pow(totLcvCur/totLcvBase,1/cagrYears)-1)*100:10;
-  const mktCAGR_su =totSuBase >0?(Math.pow(totSuCur /totSuBase ,1/cagrYears)-1)*100:10;
-  const rmsThreshold=1.0;
+  const mktCAGR_lcv = totLcvBase > 0 ? (Math.pow(totLcvCur / totLcvBase, 1/cagrYears) - 1) * 100 : 10;
+  const mktCAGR_su  = totSuBase  > 0 ? (Math.pow(totSuCur  / totSuBase,  1/cagrYears) - 1) * 100 : 10;
 
-  // ── Classify ────────────────────────────────────────────────────────────────
-  function classify(rms,cagr,threshold){
-    const hi=rms>=rmsThreshold,hg=cagr>=threshold;
-    if(hi&&hg)  return {label:'⭐ Star',     cls:'tag-star',color:'#f4d344'};
-    if(hi&&!hg) return {label:'🐄 Cash Cow', cls:'tag-cow', color:'#36c994'};
-    if(!hi&&hg) return {label:'❓ Question',  cls:'tag-qm',  color:'#ff9f45'};
-    return             {label:'🐕 Dog',        cls:'tag-dog', color:'#ff5c6b'};
+  // ── RMS cutoff: 0.5 (user-defined) ─────────────────────────────────────────
+  const rmsThreshold = 0.5;
+
+  // ── Classification ───────────────────────────────────────────────────────────
+  function classify(rms, cagr, yCut) {
+    const hiX = rms  >= rmsThreshold;
+    const hiY = cagr >= yCut;
+    if (hiX && hiY)  return {label:'⭐ Star',       cls:'tag-star', color:'#f4d344'};
+    if (hiX && !hiY) return {label:'🐄 Cash Cow',   cls:'tag-cow',  color:'#36c994'};
+    if (!hiX && hiY) return {label:'❓ Question',    cls:'tag-qm',   color:'#ff9f45'};
+    return               {label:'🐕 Dog',            cls:'tag-dog',  color:'#ff5c6b'};
   }
 
-  const maxLcv=Math.max(1,...bcgData.map(x=>x.lcv));
-  const maxSu =Math.max(1,...bcgData.map(x=>x.su));
+  // ── Count by quadrant (LCV default) ─────────────────────────────────────────
+  const stars = bcgData.filter(x => classify(x.rmsLcv, x.cagrLcv, mktCAGR_lcv).label === '⭐ Star');
+  const cows  = bcgData.filter(x => classify(x.rmsLcv, x.cagrLcv, mktCAGR_lcv).label === '🐄 Cash Cow');
+  const qms   = bcgData.filter(x => classify(x.rmsLcv, x.cagrLcv, mktCAGR_lcv).label === '❓ Question');
+  const dogs  = bcgData.filter(x => classify(x.rmsLcv, x.cagrLcv, mktCAGR_lcv).label === '🐕 Dog');
 
-  const stars=bcgData.filter(x=>classify(x.rmsLcv,x.dm1CAGR_lcv,mktCAGR_lcv).label==='⭐ Star');
-  const cows =bcgData.filter(x=>classify(x.rmsLcv,x.dm1CAGR_lcv,mktCAGR_lcv).label==='🐄 Cash Cow');
-  const qms  =bcgData.filter(x=>classify(x.rmsLcv,x.dm1CAGR_lcv,mktCAGR_lcv).label==='❓ Question');
-  const dogs =bcgData.filter(x=>classify(x.rmsLcv,x.dm1CAGR_lcv,mktCAGR_lcv).label==='🐕 Dog');
+  // ── Dataset builder per metric ───────────────────────────────────────────────
+  const maxLcv = Math.max(1, ...bcgData.map(x => x.lcv));
+  const maxSu  = Math.max(1, ...bcgData.map(x => x.su));
 
-  // ── Chart dataset builder ───────────────────────────────────────────────────
-  function makeDatasets(metric){
-    const isLcv=metric==='lcv';
-    const threshold=isLcv?mktCAGR_lcv:mktCAGR_su;
-    const maxVal=isLcv?maxLcv:maxSu;
-    const ds=[
-      {label:'⭐ Star',      backgroundColor:'rgba(244,211,68,.75)',borderColor:'#f4d344',borderWidth:1.5,data:[]},
-      {label:'🐄 Cash Cow',  backgroundColor:'rgba(54,201,148,.75)',borderColor:'#36c994',borderWidth:1.5,data:[]},
-      {label:'❓ Question',   backgroundColor:'rgba(255,159,69,.75)',borderColor:'#ff9f45',borderWidth:1.5,data:[]},
-      {label:'🐕 Dog',        backgroundColor:'rgba(255,92,107,.75)',borderColor:'#ff5c6b',borderWidth:1.5,data:[]}
-    ];
-    bcgData.forEach(x=>{
-      const rms =isLcv?x.rmsLcv:x.rmsSu;
-      const cagr=isLcv?x.dm1CAGR_lcv:x.dm1CAGR_su;
-      const val =isLcv?x.lcv:x.su;
-      if(val<=0) return;
-      const bcg=classify(rms,cagr,threshold);
-      const idx=['⭐ Star','🐄 Cash Cow','❓ Question','🐕 Dog'].indexOf(bcg.label);
-      if(idx<0) return;
+  function makeDatasets(metric) {
+    const isLcv = metric === 'lcv';
+    const yCut  = isLcv ? mktCAGR_lcv : mktCAGR_su;
+    const maxV  = isLcv ? maxLcv : maxSu;
+    const ds = [
+      {label:'⭐ Stars',          bg:'rgba(244,211,68,.82)',  bc:'#f4d344', data:[]},
+      {label:'🐄 Cash Cows',      bg:'rgba(54,201,148,.82)',  bc:'#36c994', data:[]},
+      {label:'❓ Question Marks', bg:'rgba(255,159,69,.82)',   bc:'#ff9f45', data:[]},
+      {label:'🐕 Dogs',           bg:'rgba(255,92,107,.82)',   bc:'#ff5c6b', data:[]}
+    ].map(d => ({
+      label: d.label,
+      backgroundColor: d.bg,
+      borderColor: d.bc,
+      borderWidth: 2,
+      data: d.data
+    }));
+
+    bcgData.forEach(x => {
+      const rms  = isLcv ? x.rmsLcv : x.rmsSu;
+      const cagr = isLcv ? x.cagrLcv : x.cagrSu;
+      const val  = isLcv ? x.lcv : x.su;
+      if (val <= 0) return;
+      const bcg  = classify(rms, cagr, yCut);
+      const idx  = ['⭐ Star','🐄 Cash Cow','❓ Question','🐕 Dog'].indexOf(bcg.label);
+      if (idx < 0) return;
       ds[idx].data.push({
-        x:Math.round(rms*100)/100,
-        y:Math.round(cagr*10)/10,
-        r:Math.max(5,Math.min(30,(val/maxVal)*28+5)),
-        label:x.prodName, dm1:x.dm1Name, val, rms, cagr
+        x: Math.round(rms * 1000) / 1000,
+        y: Math.round(cagr * 10) / 10,
+        r: Math.max(5, Math.min(32, (val / maxV) * 30 + 5)),
+        label: x.prodName, dm1: x.dm1Name, val, rms, cagr,
+        fmt: isLcv ? fmtLCV(val) : fmtSU(val)
       });
     });
     return ds;
   }
 
-  // ── Table rows ──────────────────────────────────────────────────────────────
-  const tableRows=bcgData.slice(0,50).map(x=>{
-    const bcg=classify(x.rmsLcv,x.dm1CAGR_lcv,mktCAGR_lcv);
+  // ── Table rows ───────────────────────────────────────────────────────────────
+  const tableRows = bcgData.slice(0, 60).map(x => {
+    const bcg = classify(x.rmsLcv, x.cagrLcv, mktCAGR_lcv);
     return `<tr>
-      <td style="font-weight:600;color:var(--txt1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.prodName}</td>
-      <td style="color:var(--txt3);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.dm1Name}</td>
-      <td><span style="background:${bcg.color}22;color:${bcg.color};border:1px solid ${bcg.color}44;padding:2px 8px;border-radius:12px;font-size:11px;white-space:nowrap">${bcg.label}</span></td>
+      <td style="font-weight:600;color:var(--txt1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x.prodName}">${x.prodName}</td>
+      <td style="color:var(--txt3);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x.dm1Name}">${x.dm1Name}</td>
+      <td><span style="background:${bcg.color}22;color:${bcg.color};border:1px solid ${bcg.color}55;padding:2px 8px;border-radius:12px;font-size:11px;white-space:nowrap">${bcg.label}</span></td>
       <td style="text-align:right">${fmtLCV(x.lcv)}</td>
       <td style="text-align:right">${fmtSU(x.su)}</td>
-      <td style="text-align:right">${(x.rmsLcv*100).toFixed(1)}%</td>
-      <td style="text-align:right;color:${x.dm1CAGR_lcv>=mktCAGR_lcv?'#36c994':'#ff9f45'}">${x.dm1CAGR_lcv>=0?'+':''}${x.dm1CAGR_lcv.toFixed(1)}%</td>
-      <td style="text-align:right;color:${x.dm1CAGR_su>=mktCAGR_su?'#36c994':'#ff9f45'}">${x.dm1CAGR_su>=0?'+':''}${x.dm1CAGR_su.toFixed(1)}%</td>
+      <td style="text-align:right;font-weight:600">${(x.rmsLcv * 100).toFixed(1)}%</td>
+      <td style="text-align:right;color:${x.cagrLcv >= mktCAGR_lcv ? '#36c994' : '#ff9f45'};font-weight:600">${x.cagrLcv >= 0 ? '+' : ''}${x.cagrLcv.toFixed(1)}%</td>
+      <td style="text-align:right;color:${x.cagrSu >= mktCAGR_su ? '#36c994' : '#ff9f45'}">${x.cagrSu >= 0 ? '+' : ''}${x.cagrSu.toFixed(1)}%</td>
     </tr>`;
   }).join('');
 
-  // ── Render HTML ─────────────────────────────────────────────────────────────
-  document.getElementById('s-bcg').innerHTML=`
+  // ── Render HTML ──────────────────────────────────────────────────────────────
+  document.getElementById('s-bcg').innerHTML = `
   <div class="section-title">🔵 BCG Matrix — Zeta Pharma Portfolio</div>
-  <div class="section-sub">Relative Market Share (vs DM1 Leader) × 3-Year Market CAGR &nbsp;|&nbsp; Y Cutoff → LCV: ${mktCAGR_lcv.toFixed(1)}% &nbsp;|&nbsp; SU: ${mktCAGR_su.toFixed(1)}% &nbsp;(Weighted Market CAGR across Zeta's DM1 Universe)</div>
+  <div class="section-sub">
+    X-Axis: Relative Market Share (Zeta ÷ DM1 Leader) &nbsp;|&nbsp; X Cutoff: 0.5x
+    &nbsp;|&nbsp; Y-Axis: DM1 3-Year Market CAGR &nbsp;|&nbsp;
+    Y Cutoff LCV: ${mktCAGR_lcv.toFixed(1)}% &nbsp;|&nbsp; Y Cutoff SU: ${mktCAGR_su.toFixed(1)}%
+    &nbsp;(Weighted Market CAGR)
+  </div>
 
   <div class="kpi-grid">
     <div class="kpi-card orange"><div class="kpi-label">⭐ Stars</div><div class="kpi-value">${stars.length}</div><div class="kpi-sub">High RMS · High Market CAGR</div></div>
     <div class="kpi-card green"><div class="kpi-label">🐄 Cash Cows</div><div class="kpi-value">${cows.length}</div><div class="kpi-sub">High RMS · Maturing Market</div></div>
     <div class="kpi-card blue"><div class="kpi-label">❓ Question Marks</div><div class="kpi-value">${qms.length}</div><div class="kpi-sub">Low RMS · Fast-Growing Market</div></div>
-    <div class="kpi-card red"><div class="kpi-label">🐕 Dogs</div><div class="kpi-value">${dogs.length}</div><div class="kpi-sub">Low RMS · Slow Market</div></div>
+    <div class="kpi-card red"><div class="kpi-label">🐕 Dogs</div><div class="kpi-value">${dogs.length}</div><div class="kpi-sub">Low RMS · Slow/Declining Market</div></div>
   </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:12px">
-    <button id="bcg-btn-lcv" onclick="renderBCGChart('lcv')" class="tb-btn tb-btn-active">LCV</button>
-    <button id="bcg-btn-su"  onclick="renderBCGChart('su')"  class="tb-btn">SU</button>
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+    <button id="bcg-btn-lcv" onclick="window.renderBCGChart('lcv')" class="tb-btn tb-btn-active">📊 LCV</button>
+    <button id="bcg-btn-su"  onclick="window.renderBCGChart('su')"  class="tb-btn">📦 SU</button>
+    <span style="font-size:11px;color:var(--txt3);margin-left:8px">Bubble size = Zeta MAT value &nbsp;|&nbsp; X cutoff = 0.5x RMS &nbsp;|&nbsp; Y cutoff = Weighted Market CAGR</span>
   </div>
 
   <div class="chart-box">
-    <div class="chart-box-title" id="bcg-chart-title">Zeta Products — BCG Matrix (LCV) <span class="chart-box-sub">Bubble size = Zeta MAT value | RMS cutoff = 1.0x | Y cutoff = Weighted Market CAGR</span></div>
-    <div class="chart-wrap" style="height:440px"><canvas id="ch-bcg-main"></canvas></div>
+    <div class="chart-box-title" id="bcg-chart-title">
+      Zeta Pharma — BCG Matrix (LCV)
+      <span class="chart-box-sub">Cutoff X=0.5x · Y-LCV=${mktCAGR_lcv.toFixed(1)}%</span>
+    </div>
+    <div class="chart-wrap" style="height:460px"><canvas id="ch-bcg-main"></canvas></div>
   </div>
 
   <div class="chart-box" style="margin-top:18px">
-    <div class="chart-box-title">Product Classification Table <span class="chart-box-sub">Top 50 Zeta products by LCV | LCV cutoff: ${mktCAGR_lcv.toFixed(1)}% | SU cutoff: ${mktCAGR_su.toFixed(1)}%</span></div>
+    <div class="chart-box-title">Product Classification Table
+      <span class="chart-box-sub">Top 60 Zeta products by LCV | Cutoffs: X=0.5x · LCV CAGR=${mktCAGR_lcv.toFixed(1)}% · SU CAGR=${mktCAGR_su.toFixed(1)}%</span>
+    </div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
@@ -2743,11 +2714,11 @@ function renderBCG() {
             <th style="text-align:left;padding:8px 6px">Product</th>
             <th style="text-align:left;padding:8px 6px">DM1 Market</th>
             <th style="text-align:left;padding:8px 6px">Quadrant</th>
-            <th style="text-align:right;padding:8px 6px">LCV (MAT)</th>
-            <th style="text-align:right;padding:8px 6px">SU (MAT)</th>
+            <th style="text-align:right;padding:8px 6px">MAT LCV</th>
+            <th style="text-align:right;padding:8px 6px">MAT SU</th>
             <th style="text-align:right;padding:8px 6px">RMS (LCV)</th>
-            <th style="text-align:right;padding:8px 6px">DM1 CAGR (LCV)</th>
-            <th style="text-align:right;padding:8px 6px">DM1 CAGR (SU)</th>
+            <th style="text-align:right;padding:8px 6px">DM1 CAGR LCV</th>
+            <th style="text-align:right;padding:8px 6px">DM1 CAGR SU</th>
           </tr>
         </thead>
         <tbody style="color:var(--txt2)">${tableRows}</tbody>
@@ -2756,184 +2727,174 @@ function renderBCG() {
   </div>
 
   <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
-
     <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
-        📐 How Quadrant Lines Are Defined
-      </div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Vertical Line — X Axis Cutoff</div>
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px">RMS = 1.0x (Market Leader Threshold)</div>
-        <div style="font-size:11px;color:var(--txt3);line-height:1.5">
-          RMS = Zeta product LCV ÷ highest-LCV product in same DM1 market (across ALL corporations).<br>
-          <strong style="color:rgba(255,255,255,.7)">RMS ≥ 1.0</strong> → Zeta IS the leader in that DM1.<br>
-          <strong style="color:rgba(255,255,255,.7)">RMS &lt; 1.0</strong> → gap to leadership (e.g. 0.5x = Zeta is half the leader's size).
-        </div>
+      <div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">📐 How Quadrant Lines Are Set</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.55);text-transform:uppercase;margin-bottom:3px">Vertical Line — X Axis = 0.5x</div>
+        <div style="font-size:12px;color:var(--txt2);line-height:1.6">RMS = Zeta product LCV ÷ highest-selling product in same DM1 (all corps). Cutoff <strong style="color:#fff">0.5x</strong> = Zeta has at least half the leader's volume → meaningful market position.</div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Horizontal Line — Y Axis Cutoff</div>
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px">Weighted Market CAGR: LCV ${mktCAGR_lcv.toFixed(1)}% | SU ${mktCAGR_su.toFixed(1)}%</div>
-        <div style="font-size:11px;color:var(--txt3);line-height:1.5">
-          <strong style="color:rgba(255,255,255,.7)">Formula:</strong> (Σ current MAT of all DM1s where Zeta competes) ÷ (Σ base MAT 3 years ago) ^ (1/3) − 1<br>
-          Weighted by market size — not a simple average. Larger markets pull the cutoff more.<br>
-          <strong style="color:rgba(255,255,255,.7)">Above line</strong> = fast-growing market &nbsp;|&nbsp; <strong style="color:rgba(255,255,255,.7)">Below line</strong> = maturing market.
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.55);text-transform:uppercase;margin-bottom:3px">Horizontal Line — Y Axis (Weighted CAGR)</div>
+        <div style="font-size:12px;color:var(--txt2);line-height:1.6">
+          LCV: <strong style="color:#36c994">${mktCAGR_lcv.toFixed(2)}%</strong> &nbsp;|&nbsp; SU: <strong style="color:#4c6ef5">${mktCAGR_su.toFixed(2)}%</strong><br>
+          Formula: (Σ current DM1 MAT ÷ Σ base DM1 MAT)^(1/3) − 1 across all DM1s where Zeta competes. Volume-weighted — avoids bias from portfolio composition.
         </div>
       </div>
     </div>
-
     <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
-        🔵 Quadrant Definitions
+      <div style="font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">🔵 Quadrant Strategic Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:11px">
+        <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:16px">⭐</span><div><strong style="color:#f4d344">STARS</strong> — RMS≥0.5x · Fast market<br><span style="color:var(--txt3)">Invest to defend leadership. High strategic priority.</span></div></div>
+        <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:16px">🐄</span><div><strong style="color:#36c994">CASH COWS</strong> — RMS≥0.5x · Slow market<br><span style="color:var(--txt3)">Harvest. Protect share, minimize investment.</span></div></div>
+        <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:16px">❓</span><div><strong style="color:#ff9f45">QUESTION MARKS</strong> — RMS&lt;0.5x · Fast market<br><span style="color:var(--txt3)">Selective invest. Win share or exit.</span></div></div>
+        <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:16px">🐕</span><div><strong style="color:#ff5c6b">DOGS</strong> — RMS&lt;0.5x · Slow market<br><span style="color:var(--txt3)">Rationalize. Consider exit unless strategic.</span></div></div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <div style="font-size:18px;line-height:1">⭐</div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#f4d344">STARS — High RMS · High Market CAGR</div>
-            <div style="font-size:11px;color:var(--txt3)">Zeta leads in a fast-growing market. Priority: invest to defend leadership. High strategic value.</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <div style="font-size:18px;line-height:1">🐄</div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#36c994">CASH COWS — High RMS · Low Market CAGR</div>
-            <div style="font-size:11px;color:var(--txt3)">Zeta leads in a mature market. Harvest cash flows. Minimal investment needed; protect share.</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <div style="font-size:18px;line-height:1">❓</div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#ff9f45">QUESTION MARKS — Low RMS · High Market CAGR</div>
-            <div style="font-size:11px;color:var(--txt3)">Growing market but Zeta is not leader. Selective invest to win share, or divest if unfeasible.</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <div style="font-size:18px;line-height:1">🐕</div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#ff5c6b">DOGS — Low RMS · Low Market CAGR</div>
-            <div style="font-size:11px;color:var(--txt3)">Weak position in slow market. Consider rationalization unless strategic reason to maintain.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <div style="margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">
-    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📊 Axis Methodology</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:11px;color:var(--txt3)">
-      <div><strong style="color:rgba(255,255,255,.7)">Y-Axis (vertical position):</strong> DM1 market 3-Year CAGR = entire DM1 volume growth (ALL corporations), MAT current vs MAT from 3 years prior. Reflects market attractiveness — not Zeta's own performance.</div>
-      <div><strong style="color:rgba(255,255,255,.7)">X-Axis (horizontal position):</strong> Relative Market Share = Zeta product MAT ÷ highest-selling product MAT in that DM1. Reflects competitive strength. Values &gt;1.0 = market leader.</div>
-      <div><strong style="color:rgba(255,255,255,.7)">Bubble size:</strong> Zeta's absolute MAT value (LCV in EGP or SU units). Larger bubble = more commercial weight. Use to prioritize quadrant actions.</div>
     </div>
   </div>`;
 
-  // ── Quadrant background plugin ───────────────────────────────────────────────
-  function quadrantPlugin(xDiv,yDiv){
+  // ── Quadrant plugin ───────────────────────────────────────────────────────────
+  function quadrantPlugin(xCut, yCut, metricLabel) {
     return {
-      id:'bcgQuadrants',
-      beforeDraw(chart){
-        const {ctx,chartArea:{left,right,top,bottom},scales:{x,y}}=chart;
-        const xM=x.getPixelForValue(xDiv), yM=y.getPixelForValue(yDiv);
+      id: 'bcgQuadrants',
+      beforeDraw(chart) {
+        const {ctx, chartArea:{left,right,top,bottom}, scales:{x,y}} = chart;
+        const xM = x.getPixelForValue(xCut);
+        const yM = y.getPixelForValue(yCut);
         ctx.save();
 
         // Quadrant fills
-        [[xM,top,right,yM,'rgba(244,211,68,.10)'],
-         [xM,yM,right,bottom,'rgba(54,201,148,.10)'],
-         [left,top,xM,yM,'rgba(255,159,69,.10)'],
-         [left,yM,xM,bottom,'rgba(255,92,107,.10)']
-        ].forEach(([x1,y1,x2,y2,c])=>{ctx.fillStyle=c;ctx.fillRect(x1,y1,x2-x1,y2-y1);});
-
-        // Dividing lines — solid, bright
-        ctx.setLineDash([]);
-        ctx.lineWidth=1.8;
-        ctx.strokeStyle='rgba(255,255,255,.55)';
-        ctx.beginPath();ctx.moveTo(xM,top);ctx.lineTo(xM,bottom);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(left,yM);ctx.lineTo(right,yM);ctx.stroke();
-
-        // X-line badge (top of vertical line)
-        const xLabel='RMS = 1.0x';
-        ctx.font='bold 10px sans-serif';
-        const xLW=ctx.measureText(xLabel).width+12;
-        ctx.fillStyle='rgba(20,20,35,.88)';
-        ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1;
-        ctx.beginPath();ctx.roundRect(xM-xLW/2,top+3,xLW,17,3);ctx.fill();ctx.stroke();
-        ctx.fillStyle='rgba(255,255,255,.95)';ctx.textAlign='center';
-        ctx.fillText(xLabel,xM,top+15);
-
-        // Y-line badge (right of horizontal line)
-        const yLabel='CAGR = '+yDiv.toFixed(1)+'%';
-        const yLW=ctx.measureText(yLabel).width+12;
-        ctx.fillStyle='rgba(20,20,35,.88)';
-        ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1;
-        ctx.beginPath();ctx.roundRect(right-yLW-4,yM-9,yLW,17,3);ctx.fill();ctx.stroke();
-        ctx.fillStyle='rgba(255,255,255,.95)';ctx.textAlign='right';
-        ctx.fillText(yLabel,right-10,yM+3);
-
-        // Quadrant labels with pill backgrounds
-        const ql=[
-          {tx:xM+10,ty:top+44,label:'STARS',      c:'#f4d344',align:'left'},
-          {tx:xM+10,ty:bottom-14,label:'CASH COWS',  c:'#36c994',align:'left'},
-          {tx:xM-10,ty:top+44,label:'QUESTION MARKS',c:'#ff9f45',align:'right'},
-          {tx:xM-10,ty:bottom-14,label:'DOGS',       c:'#ff5c6b',align:'right'},
-        ];
-        ctx.font='bold 11px sans-serif';
-        ql.forEach(function(q){
-          ctx.textAlign=q.align;
-          var lw=ctx.measureText(q.label).width;
-          var bx=q.align==='left'?q.tx-4:q.tx-lw-4;
-          ctx.fillStyle='rgba(20,20,30,.72)';
-          ctx.beginPath();ctx.roundRect(bx,q.ty-13,lw+8,17,3);ctx.fill();
-          ctx.fillStyle=q.c;ctx.globalAlpha=.95;
-          ctx.fillText(q.label,q.tx,q.ty);
-          ctx.globalAlpha=1;
+        [[xM,top,right,yM,'rgba(244,211,68,.09)'],
+         [xM,yM,right,bottom,'rgba(54,201,148,.09)'],
+         [left,top,xM,yM,'rgba(255,159,69,.09)'],
+         [left,yM,xM,bottom,'rgba(255,92,107,.09)']
+        ].forEach(function(q) {
+          ctx.fillStyle = q[4]; ctx.fillRect(q[0],q[1],q[2]-q[0],q[3]-q[1]);
         });
 
+        // Dividing lines
+        ctx.setLineDash([]); ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,.5)';
+        ctx.beginPath(); ctx.moveTo(xM, top);    ctx.lineTo(xM, bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(left, yM);   ctx.lineTo(right, yM);  ctx.stroke();
+
+        ctx.font = 'bold 10px sans-serif';
+
+        // X badge
+        var xLabel = 'RMS = 0.5x';
+        var xLW = ctx.measureText(xLabel).width + 14;
+        ctx.fillStyle = 'rgba(15,17,28,.9)';
+        ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        if(ctx.roundRect) ctx.roundRect(xM - xLW/2, top + 4, xLW, 17, 3);
+        else ctx.rect(xM - xLW/2, top + 4, xLW, 17);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.textAlign = 'center';
+        ctx.fillText(xLabel, xM, top + 16);
+
+        // Y badge
+        var yLabel = metricLabel + ' = ' + yCut.toFixed(1) + '%';
+        var yLW = ctx.measureText(yLabel).width + 14;
+        ctx.fillStyle = 'rgba(15,17,28,.9)';
+        ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        if(ctx.roundRect) ctx.roundRect(right - yLW - 4, yM - 10, yLW, 17, 3);
+        else ctx.rect(right - yLW - 4, yM - 10, yLW, 17);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.textAlign = 'right';
+        ctx.fillText(yLabel, right - 11, yM + 3);
+
+        // Quadrant labels
+        var qlabels = [
+          {tx:xM+10,  ty:top+42,    label:'STARS',          c:'#f4d344', a:'left'},
+          {tx:xM+10,  ty:bottom-14, label:'CASH COWS',      c:'#36c994', a:'left'},
+          {tx:xM-10,  ty:top+42,    label:'QUESTION MARKS', c:'#ff9f45', a:'right'},
+          {tx:xM-10,  ty:bottom-14, label:'DOGS',           c:'#ff5c6b', a:'right'}
+        ];
+        ctx.font = 'bold 11px sans-serif';
+        qlabels.forEach(function(q) {
+          ctx.textAlign = q.a;
+          var lw = ctx.measureText(q.label).width;
+          var bx = q.a === 'left' ? q.tx - 4 : q.tx - lw - 4;
+          ctx.fillStyle = 'rgba(12,14,24,.78)';
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(bx, q.ty - 13, lw + 8, 17, 3);
+          else ctx.rect(bx, q.ty - 13, lw + 8, 17);
+          ctx.fill();
+          ctx.fillStyle = q.c; ctx.globalAlpha = .95;
+          ctx.fillText(q.label, q.tx, q.ty);
+          ctx.globalAlpha = 1;
+        });
         ctx.restore();
       }
     };
   }
 
-  // ── Chart render function exposed globally for metric toggle ─────────────────
-  window.renderBCGChart=function(metric){
-    const isLcv=metric==='lcv';
-    const threshold=isLcv?mktCAGR_lcv:mktCAGR_su;
-    document.getElementById('bcg-btn-lcv').className='tb-btn'+(isLcv?' tb-btn-active':'');
-    document.getElementById('bcg-btn-su') .className='tb-btn'+(!isLcv?' tb-btn-active':'');
-    const titleEl=document.getElementById('bcg-chart-title');
-    if(titleEl) titleEl.childNodes[0].textContent=`Zeta Products — BCG Matrix (${metric.toUpperCase()}) `;
+  // ── Chart renderer (exposed globally for toggle) ─────────────────────────────
+  window.renderBCGChart = function(metric) {
+    const isLcv = metric === 'lcv';
+    const yCut  = isLcv ? mktCAGR_lcv : mktCAGR_su;
+    const metricLabel = isLcv ? 'LCV CAGR' : 'SU CAGR';
+
+    document.getElementById('bcg-btn-lcv').className = 'tb-btn' + (isLcv ? ' tb-btn-active' : '');
+    document.getElementById('bcg-btn-su') .className = 'tb-btn' + (!isLcv ? ' tb-btn-active' : '');
+
+    const titleEl = document.getElementById('bcg-chart-title');
+    if (titleEl) {
+      titleEl.innerHTML = 'Zeta Pharma — BCG Matrix (' + metric.toUpperCase() + ')' +
+        '<span class="chart-box-sub">Cutoff X=0.5x · Y-' + metric.toUpperCase() + '=' + yCut.toFixed(1) + '%</span>';
+    }
+
     destroyChart('ch-bcg-main');
-    const ctx=document.getElementById('ch-bcg-main')?.getContext('2d');
-    if(!ctx) return;
-    const txt2=getComputedStyle(document.documentElement).getPropertyValue('--txt2');
-    const txt3=getComputedStyle(document.documentElement).getPropertyValue('--txt3');
-    charts['ch-bcg-main']=new Chart(ctx,{
-      type:'bubble',
-      data:{datasets:makeDatasets(metric)},
-      plugins:[quadrantPlugin(rmsThreshold,threshold)],
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{
-          tooltip:{callbacks:{label:ctx2=>{
-            const d=ctx2.raw;
-            return [`${d.label}`,`DM1: ${d.dm1}`,
-                    `RMS: ${d.rms.toFixed(2)}x | Mkt CAGR: ${d.cagr.toFixed(1)}%`,
-                    `Value: ${isLcv?fmtLCV(d.val):fmtSU(d.val)}`];
-          }}},
-          legend:{labels:{color:txt2,font:{size:11}}}
+    const ctx = document.getElementById('ch-bcg-main')?.getContext('2d');
+    if (!ctx) return;
+
+    const txt2 = getComputedStyle(document.documentElement).getPropertyValue('--txt2').trim() || '#9da8c5';
+    const txt3 = getComputedStyle(document.documentElement).getPropertyValue('--txt3').trim() || '#6b7694';
+
+    charts['ch-bcg-main'] = new Chart(ctx, {
+      type: 'bubble',
+      data: { datasets: makeDatasets(metric) },
+      plugins: [quadrantPlugin(rmsThreshold, yCut, metricLabel)],
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                const d = c.raw;
+                return [
+                  d.label,
+                  'DM1: ' + d.dm1,
+                  'RMS: ' + (d.rms * 100).toFixed(1) + '% of leader',
+                  'Mkt CAGR 3Y: ' + (d.cagr >= 0 ? '+' : '') + d.cagr.toFixed(1) + '%',
+                  'Value: ' + d.fmt
+                ];
+              }
+            }
+          },
+          legend: { labels: { color: txt2, font: { size: 11 }, padding: 16 } }
         },
-        scales:{
-          x:{min:0,title:{display:true,text:'Relative Market Share — Zeta ÷ DM1 Leader (RMS)',color:txt2},
-             ticks:{color:txt3,callback:v=>v.toFixed(2)+'x'},grid:{color:'rgba(255,255,255,.04)'}},
-          y:{title:{display:true,text:`DM1 3-Year Market CAGR — ${isLcv?'LCV':'SU'} (%)`,color:txt2},
-             ticks:{color:txt3,callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.04)'}}
+        scales: {
+          x: {
+            min: 0,
+            title: { display: true, text: 'Relative Market Share — Zeta ÷ DM1 Leader', color: txt2, font: {size:12, weight:'bold'} },
+            ticks: { color: txt3, callback: function(v) { return v.toFixed(2) + 'x'; } },
+            grid: { color: 'rgba(255,255,255,.05)' }
+          },
+          y: {
+            title: { display: true, text: 'DM1 3-Year Market CAGR — ' + (isLcv ? 'LCV' : 'SU') + ' (%)', color: txt2, font: {size:12, weight:'bold'} },
+            ticks: { color: txt3, callback: function(v) { return v + '%'; } },
+            grid: { color: 'rgba(255,255,255,.05)' }
+          }
         }
       }
     });
   };
 
-  window.renderBCGChart(STATE.metric);
+  window.renderBCGChart(STATE.metric || 'lcv');
 }
+
 
 
 // ===================== PORTFOLIO MANAGEMENT =====================
@@ -3204,24 +3165,6 @@ function renderZetaCmd() {
   const hl = STATE.metric==='lcv'?'style="background:rgba(76,110,245,.10)"':'style="background:rgba(32,178,170,.10)"';
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  // Pre-compute commentary strings (avoids nested template literals)
-  const _rankNarr     = zetaRankNarr ? '<p>'+zetaRankNarr+'</p>' : '';
-  const _shareFlow    = shareFlowNarrative ? '<p>'+shareFlowNarrative+'</p>' : '';
-  const _outgrowNames = outgrowZeta.slice(0,4).map(x=>''+((LOOKUPS.corps[x.c]||'').substring(0,16))+' (EVI '+x.EVI+')').join(', ');
-  const _outgrow      = outgrowZeta.length>0
-    ? '<p><strong>'+outgrowZeta.length+' competitor'+(outgrowZeta.length>1?'s':'')+'</strong> outgrowing Zeta (excl. launch-boosted): '+_outgrowNames+(outgrowZeta.length>4?' + more':'')+' — monitor closely.</p>'
-    : '<p>✅ No non-launch-boosted competitor is outgrowing Zeta in the selected period.</p>';
-  const _newEntrantNames = allCorps.filter(x=>x.isNew).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,16)).join(', ');
-  const _entrants     = newEntrants>0
-    ? '<p>🆕 <strong>'+newEntrants+' new market entrant'+(newEntrants>1?'s':'')+'</strong> detected: '+_newEntrantNames+(newEntrants>3?' + more':'')+'. Monitor trajectory.</p>'
-    : '';
-  const _launchCorps  = allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX);
-  const _launchNames  = _launchCorps.slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,14)).join(', ');
-  const _launch       = _launchCorps.length>0
-    ? '<p>⚠️ <strong>'+_launchCorps.length+' corp'+(_launchCorps.length>1?'s':'')+'</strong> showing launch-boosted growth (>800% growth, near-zero prior period) — excluded from threat EVI calculations: '+_launchNames+'.</p>'
-    : '';
-  const _mktStructure = hhi>2500?'High concentration — limited room for new players.':hhi>1500?'Moderate concentration — competitive dynamics active.':'Fragmented market — significant opportunity for share gains.';
-
   const h = `
   <div class="section-title">⭐ Zeta Pharma Command Center</div>
   <div class="section-sub">ZETA PHARM* — Full Performance Analysis | ${rangeLabel} | ${refPeriodLabel()}</div>
@@ -3757,29 +3700,11 @@ function renderZetaComp() {
   const hl2      = STATE.metric==='lcv'?'background:rgba(76,110,245,.07)':'background:rgba(32,178,170,.07)';
 
   // ── HTML ───────────────────────────────────────────────────────────────
-  // Pre-compute commentary strings (avoids nested template literals)
-  const _rankNarr     = zetaRankNarr ? '<p>'+zetaRankNarr+'</p>' : '';
-  const _shareFlow    = shareFlowNarrative ? '<p>'+shareFlowNarrative+'</p>' : '';
-  const _outgrowNames = outgrowZeta.slice(0,4).map(x=>''+((LOOKUPS.corps[x.c]||'').substring(0,16))+' (EVI '+x.EVI+')').join(', ');
-  const _outgrow      = outgrowZeta.length>0
-    ? '<p><strong>'+outgrowZeta.length+' competitor'+(outgrowZeta.length>1?'s':'')+'</strong> outgrowing Zeta (excl. launch-boosted): '+_outgrowNames+(outgrowZeta.length>4?' + more':'')+' — monitor closely.</p>'
-    : '<p>✅ No non-launch-boosted competitor is outgrowing Zeta in the selected period.</p>';
-  const _newEntrantNames = allCorps.filter(x=>x.isNew).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,16)).join(', ');
-  const _entrants     = newEntrants>0
-    ? '<p>🆕 <strong>'+newEntrants+' new market entrant'+(newEntrants>1?'s':'')+'</strong> detected: '+_newEntrantNames+(newEntrants>3?' + more':'')+'. Monitor trajectory.</p>'
-    : '';
-  const _launchCorps  = allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX);
-  const _launchNames  = _launchCorps.slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,14)).join(', ');
-  const _launch       = _launchCorps.length>0
-    ? '<p>⚠️ <strong>'+_launchCorps.length+' corp'+(_launchCorps.length>1?'s':'')+'</strong> showing launch-boosted growth (>800% growth, near-zero prior period) — excluded from threat EVI calculations: '+_launchNames+'.</p>'
-    : '';
-  const _mktStructure = hhi>2500?'High concentration — limited room for new players.':hhi>1500?'Moderate concentration — competitive dynamics active.':'Fragmented market — significant opportunity for share gains.';
-
   const h = `
-  <div class="section-title">⚔️ Zeta Competitor Intelligence${_dm1TitleSuffix}</div>
+  <div class="section-title">⚔️ Zeta Competitor Intelligence${activeDm1!==null?` — <span style="color:var(--acc2);font-size:clamp(13px,1vw,16px)">${(LOOKUPS.dm1s[activeDm1]||"")}</span>":""}</div>
   <div class="section-sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     Full market competitive analysis — ${rangeLabel} | ${refPeriodLabel()} | Metric: ${ml}
-    ${_dm1FilterSpan}
+    ${activeDm1!==null?`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:rgba(54,201,148,.15);border:1px solid var(--acc2);color:var(--acc2);font-size:12px;font-weight:600">📍 ${(LOOKUPS.dm1s[activeDm1]||'').substring(0,32)}</span>`:'<span style="font-size:12px;color:var(--txt3)">Select DM1 in topbar to filter by market</span>'}
   </div>
 
   <!-- Layer 1: Market Landscape -->
@@ -3898,7 +3823,17 @@ function renderZetaComp() {
   </div>
 
   <!-- New Entrants Panel (conditional) -->
-  ${_newEntrantsPanel}
+  ${newEntrants>0?`
+  <div class="zeta-layer-lbl">🆕 New Entrants</div>
+  <div class="kpi-grid">
+    ${allCorps.filter(x=>x.isNew).slice(0,6).map(x=>`
+    <div class="kpi-card red">
+      <div class="kpi-label">New Player</div>
+      <div class="kpi-value" style="font-size:clamp(12px,1vw,16px)">${(LOOKUPS.corps[x.c]||'').substring(0,20)}</div>
+      <div class="kpi-sub">${fmtLCV(x.cur)} | Rank #${x.rankCur}</div>
+      <div><span class="badge badge-down">New entrant</span></div>
+    </div>`).join('')}
+  </div>`:''}
 
   <!-- Full Competitive League Table -->
   <div class="tbl-wrap">
@@ -3944,7 +3879,7 @@ function renderZetaComp() {
         <tbody>
         ${[zetaEntry,...shareGainers].filter(x=>x.shareChgPp>0).sort((a,b)=>b.shareChgPp-a.shareChgPp).slice(0,8).map((x,i)=>{
           const isZeta=x.c===ZETA_IDX;
-          return `<tr ${isZeta?'style="'+hl2+'"':''}><td>${i+1}</td>
+          return `<tr ${isZeta?`style="${hl2}"`:''}><td>${i+1}</td>
           <td style="font-weight:${isZeta?700:400}">${(LOOKUPS.corps[x.c]||'').substring(0,22)}${isZeta?' ⭐':''}</td>
           <td><span class="badge badge-up">+${x.shareChgPp.toFixed(2)}pp</span></td>
           <td>${fmtGrowth(x.gr)}</td></tr>`;
@@ -3959,7 +3894,7 @@ function renderZetaComp() {
         <tbody>
         ${[zetaEntry,...shareLosers].filter(x=>x.shareChgPp<0).sort((a,b)=>a.shareChgPp-b.shareChgPp).slice(0,8).map((x,i)=>{
           const isZeta=x.c===ZETA_IDX;
-          return `<tr ${isZeta?'style="'+hl2+'"':''}><td>${i+1}</td>
+          return `<tr ${isZeta?`style="${hl2}"`:''}><td>${i+1}</td>
           <td style="font-weight:${isZeta?700:400}">${(LOOKUPS.corps[x.c]||'').substring(0,22)}${isZeta?' ⭐':''}</td>
           <td><span class="badge badge-down">${x.shareChgPp.toFixed(2)}pp</span></td>
           <td>${fmtGrowth(x.gr)}</td></tr>`;
@@ -3972,12 +3907,12 @@ function renderZetaComp() {
   <!-- Intelligence Commentary -->
   <div class="commentary">
     <h4>🧠 Competitive Intelligence — ${rangeLabel} Summary</h4>
-    ${_rankNarr}
-    ${_shareFlow}
-    ${_outgrow}
-    ${_entrants}
-    ${_launch}
-    <p>Market structure: <strong>${fragLabel}</strong> (HHI ${Math.round(hhi)}) | Top-3 hold ${fmtPct(top3Share)} of market. ${_mktStructure}</p>
+    ${zetaRankNarr?`<p>${zetaRankNarr}</p>`:''}
+    ${shareFlowNarrative?`<p>${shareFlowNarrative}</p>`:''}
+    ${outgrowZeta.length>0?`<p><strong>${outgrowZeta.length} competitor${outgrowZeta.length>1?'s':''}</strong> outgrowing Zeta (excl. launch-boosted): ${outgrowZeta.slice(0,4).map(x=>`${(LOOKUPS.corps[x.c]||'').substring(0,16)} (EVI ${x.EVI})`).join(', ')}${outgrowZeta.length>4?' + more':''} — monitor closely.</p>`:'<p>✅ No non-launch-boosted competitor is outgrowing Zeta in the selected period.</p>'}
+    ${newEntrants>0?`<p>🆕 <strong>${newEntrants} new market entrant${newEntrants>1?'s':''}</strong> detected: ${allCorps.filter(x=>x.isNew).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,16)).join(', ')}${newEntrants>3?' + more':''}. Monitor trajectory.</p>`:''}
+    ${allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX).length>0?`<p>⚠️ <strong>${allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX).length} corp${allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX).length>1?'s':''}</strong> showing launch-boosted growth (>800% growth, near-zero prior period) — excluded from threat EVI calculations: ${allCorps.filter(x=>x.isLaunch&&x.c!==ZETA_IDX).slice(0,3).map(x=>(LOOKUPS.corps[x.c]||'').substring(0,14)).join(', ')}.</p>`:''}
+    <p>Market structure: <strong>${fragLabel}</strong> (HHI ${Math.round(hhi)}) | Top-3 hold ${fmtPct(top3Share)} of market. ${hhi>2500?'High concentration — limited room for new players.':hhi>1500?'Moderate concentration — competitive dynamics active.':'Fragmented market — significant opportunity for share gains.'}</p>
   </div>`;
 
   document.getElementById('s-zeta-comp').innerHTML = h;
@@ -4856,6 +4791,98 @@ function renderAlerts() {
 
 <script>
 // ===================== AI INSIGHTS GENERATOR =====================
+function renderInsights() {
+  const curPidxs=getPeriodIndices('mat'), prevPidxs=getPrevPeriodIndices('mat');
+  const corpCur=aggBy(CI,dimFilter(),curPidxs), corpPrev=aggBy(CI,dimFilter(),prevPidxs);
+  const prodCur=aggBy(PI,dimFilter(),curPidxs), prodPrev=aggBy(PI,dimFilter(),prevPidxs);
+  const atc4Cur=aggBy(AI,dimFilter(),curPidxs), atc4Prev=aggBy(AI,dimFilter(),prevPidxs);
+  const dm1Cur=aggBy(D1I,dimFilter(),curPidxs), dm1Prev=aggBy(D1I,dimFilter(),prevPidxs);
+  let totalMat=0,totalPmat=0;
+  corpCur.forEach(v=>totalMat+=MV(v)); corpPrev.forEach(v=>totalPmat+=v.lcv);
+
+  const corpsSorted=[...corpCur.entries()].map(([c,v])=>{
+    const pv=corpPrev.get(c)||{lcv:0};
+    return {c,lcv:v.lcv,pv:pv.lcv,share:v.lcv/totalMat,g:growth(MV(v),MV(pv))};
+  }).sort((a,b)=>MV(b)-MV(a));
+
+  const prodsSorted=[...prodCur.entries()].map(([p,v])=>{
+    const pv=prodPrev.get(p)||{lcv:0};
+    return {p,lcv:v.lcv,pv:pv.lcv,share:v.lcv/totalMat,g:growth(MV(v),MV(pv))};
+  }).sort((a,b)=>MV(b)-MV(a));
+
+  const atc4Sorted=[...atc4Cur.entries()].map(([a,v])=>{
+    const pv=atc4Prev.get(a)||{lcv:0};
+    return {a,lcv:v.lcv,pv:pv.lcv,share:v.lcv/totalMat,g:growth(MV(v),MV(pv))};
+  }).sort((a,b)=>MV(b)-MV(a));
+
+  const dm1Sorted=[...dm1Cur.entries()].map(([d,v])=>{
+    const pv=dm1Prev.get(d)||{lcv:0};
+    return {d,lcv:v.lcv,pv:pv.lcv,share:v.lcv/totalMat,g:growth(MV(v),MV(pv))};
+  }).sort((a,b)=>MV(b)-MV(a));
+
+  const mktGrowth=growth(totalMat,totalPmat);
+  const top1corp=corpsSorted[0], top2corp=corpsSorted[1], top3corp=corpsSorted[2];
+  const topGrowCorp=corpsSorted.filter(c=>c.pv>totalPmat*0.001).sort((a,b)=>b.g-a.g)[0];
+  const topDeclCorp=corpsSorted.filter(c=>c.pv>totalPmat*0.001).sort((a,b)=>a.g-b.g)[0];
+  const top1prod=prodsSorted[0], top2prod=prodsSorted[1];
+  const topGrowProd=prodsSorted.filter(p=>p.pv>totalPmat*0.0001).sort((a,b)=>b.g-a.g)[0];
+  const topAtc4=atc4Sorted[0]; const topGrowAtc4=atc4Sorted.filter(a=>a.pv>0).sort((a,b)=>b.g-a.g)[0];
+  const topDm1=dm1Sorted[0]; const topGrowDm1=dm1Sorted.filter(d=>d.pv>0).sort((a,b)=>b.g-a.g)[0];
+  const zeta=corpsSorted.find(c=>c.c===ZETA_IDX);
+  const zetaRank=corpsSorted.findIndex(c=>c.c===ZETA_IDX)+1;
+  const top5share=corpsSorted.slice(0,5).reduce((s,c)=>s+c.share,0);
+  const top10Prods=prodsSorted.slice(0,10);
+  const top10ProdShare=top10Prods.reduce((s,p)=>s+p.share,0);
+  const top3ProdIncr=prodsSorted.filter(p=>p.pv>0).sort((a,b)=>(b.lcv-b.pv)-(a.lcv-a.pv)).slice(0,3);
+  const top3IncrShare=top3ProdIncr.reduce((s,p)=>s+(p.lcv-p.pv),0)/(totalMat-totalPmat||1);
+  const newEntrants=prodsSorted.filter(p=>p.pv===0&&p.lcv>0).length;
+  const declining=prodsSorted.filter(p=>p.g<-0.1&&p.pv>0).length;
+
+  const insights = [
+    {tag:'market',text:`The Egypt pharmaceutical market reached <strong>${fmtLCV(totalMat)} EGP</strong> MAT, growing <strong>${fmtGrowthTxt(mktGrowth)}</strong> vs prior MAT.`},
+    {tag:'share',text:`<strong>${LOOKUPS.corps[top1corp?.c||0]}</strong> leads with ${fmtPct(top1corp?.share||0)} value share (${fmtLCV(top1corp?.lcv||0)} EGP MAT).`},
+    {tag:'growth',text:`<strong>${LOOKUPS.corps[topGrowCorp?.c||0]}</strong> is the fastest-growing major corporation at <strong>${fmtGrowthTxt(topGrowCorp?.g)}</strong> MAT growth.`},
+    {tag:'competitive',text:`The top 5 corporations control <strong>${fmtPct(top5share)}</strong> of total market value, indicating ${top5share>0.6?'high':'moderate'} market concentration.`},
+    {tag:'share',text:`<strong>${LOOKUPS.prods[top1prod?.p||0]}</strong> is the #1 product with ${fmtPct(top1prod?.share||0)} national value share (${fmtLCV(top1prod?.lcv||0)} EGP).`},
+    {tag:'growth',text:`Top 3 incremental contributors: <strong>${top3ProdIncr.map(p=>LOOKUPS.prods[p.p]).join(', ')}</strong> — driving ${fmtPct(top3IncrShare)} of total incremental value.`},
+    {tag:'market',text:`<strong>${LOOKUPS.atc4s[topAtc4?.a||0]}</strong> is the largest ATC4 category with ${fmtPct(topAtc4?.share||0)} market share.`},
+    {tag:'growth',text:`<strong>${LOOKUPS.atc4s[topGrowAtc4?.a||0]}</strong> ATC4 class is growing fastest at ${fmtGrowthTxt(topGrowAtc4?.g)} MAT growth.`},
+    {tag:'market',text:`<strong>${LOOKUPS.dm1s[topDm1?.d||0]}</strong> is the largest defined market with ${fmtPct(topDm1?.share||0)} of total market.`},
+    {tag:'opportunity',text:`<strong>${LOOKUPS.dm1s[topGrowDm1?.d||0]}</strong> is the fastest-growing defined market at ${fmtGrowthTxt(topGrowDm1?.g)}, signaling expansion opportunity.`},
+    {tag:'competitive',text:`<strong>${LOOKUPS.corps[topDeclCorp?.c||0]}</strong> shows the steepest decline at ${fmtGrowthTxt(topDeclCorp?.g)} — competitive threat or market exit indicator.`},
+    {tag:'share',text:`Zeta Pharma holds <strong>#${zetaRank} national rank</strong> with ${fmtPct(zeta?.share||0)} value share — ${zeta?.g>0?'growing':'declining'} at ${fmtGrowthTxt(zeta?.g)} MAT.`},
+    {tag:'growth',text:`The top 10 products collectively account for <strong>${fmtPct(top10ProdShare)}</strong> of total market value — ${top10ProdShare>0.4?'highly concentrated':'moderately diversified'} product landscape.`},
+    {tag:'market',text:`<strong>${newEntrants} new products</strong> entered the market (no prior MAT sales), reflecting continued pipeline launches.`},
+    {tag:'competitive',text:`<strong>${declining} products</strong> are experiencing significant decline (>-10% MAT growth), suggesting market pressure or lifecycle challenges.`},
+    {tag:'share',text:`<strong>${LOOKUPS.corps[top2corp?.c||0]}</strong> holds #2 position with ${fmtPct(top2corp?.share||0)} share at ${fmtGrowthTxt(top2corp?.g)} MAT growth.`},
+    {tag:'growth',text:`<strong>${LOOKUPS.prods[topGrowProd?.p||0]}</strong> is the fastest-growing significant product at ${fmtGrowthTxt(topGrowProd?.g)} MAT growth.`},
+    {tag:'opportunity',text:`<strong>${prodsSorted.filter(p=>p.g>0.25&&p.pv>0).length}</strong> products growing >25% MAT represent emerging brand opportunities worth investigating.`},
+    {tag:'market',text:`Total market standard units: <strong>${fmtLCV(Array.from(prodCur.values()).reduce((s,v)=>s+v.su,0))}</strong> MAT, indicating volume dynamics alongside value growth.`},
+    {tag:'competitive',text:`The #2 vs #1 share gap is <strong>${fmtPct((top1corp?.share||0)-(top2corp?.share||0))}</strong> — ${(top1corp?.share||0)-(top2corp?.share||0)>0.05?'significant leader dominance':'close competitive race at the top'}.`},
+    {tag:'growth',text:`<strong>${atc4Sorted.filter(a=>a.g>mktGrowth).length}</strong> ATC4 categories are growing above the market average of ${fmtGrowthTxt(mktGrowth)}.`},
+    {tag:'share',text:`<strong>${dm1Sorted.filter(d=>d.g<0&&d.pv>0).length}</strong> defined markets are contracting — structural shifts require strategic monitoring.`},
+    {tag:'opportunity',text:`<strong>${prodsSorted.filter(p=>p.lcv>0&&p.g>0.5&&p.pv>0).length}</strong> products with >50% MAT growth represent high-momentum emerging brands.`},
+    {tag:'market',text:`Market structure: Top 3 corporations hold ${fmtPct(corpsSorted.slice(0,3).reduce((s,c)=>s+c.share,0))} of value — ${corpsSorted.slice(0,3).reduce((s,c)=>s+c.share,0)>0.4?'oligopolistic':'competitive'} dynamics.`},
+    {tag:'competitive',text:`<strong>${corpsSorted.filter(c=>c.g>0.2).length}</strong> corporations growing >20% MAT represent competitive threats to established leaders.`},
+  ];
+
+  const tagColors={growth:'growth',share:'share',competitive:'competitive',market:'market',opportunity:'opportunity'};
+
+  const html=`
+  <div class="section-title">🤖 AI Insight Generator</div>
+  <div class="section-sub">${insights.length} executive insights dynamically computed from actual market data — MAT</div>
+
+  <div class="insight-grid">
+  ${insights.map(ins=>`
+    <div class="insight-card">
+      <span class="insight-tag ${tagColors[ins.tag]||'market'}">${ins.tag.toUpperCase()}</span>
+      <p>${ins.text}</p>
+    </div>`).join('')}
+  </div>`;
+
+  document.getElementById('s-insights').innerHTML=html;
+}
+
 // ===================== EXECUTIVE RECOMMENDATIONS =====================
 function renderRecommendations() {
   const curPidxs=getPeriodIndices('mat'), prevPidxs=getPrevPeriodIndices('mat');
@@ -4964,7 +4991,6 @@ function applyFilters() {
   const tr   = document.getElementById('f-timerange').value;
   STATE.fCorp = corp ? parseInt(corp) : -1;
   STATE.fDm1  = dm1  ? parseInt(dm1)  : -1;
-  STATE.fDm1Sel = dm1 ? new Set([parseInt(dm1)]) : new Set();
   STATE.fDm2  = dm2  ? parseInt(dm2)  : -1;
   STATE.fAtc4 = atc4 ? parseInt(atc4) : -1;
   STATE.timeRange = tr;
@@ -4980,7 +5006,7 @@ function clearFilters() {
   document.getElementById('f-atc4').value='';
   const dm2el=document.getElementById('f-dm2'); if(dm2el) dm2el.value='';
   document.getElementById('f-timerange').value='mat';
-  STATE.fCorp=-1; STATE.fDm1=-1; STATE.fDm1Sel=new Set(); STATE.fDm2=-1; STATE.fAtc4=-1; STATE.timeRange='mat';
+  STATE.fCorp=-1; STATE.fDm1=-1; STATE.fDm2=-1; STATE.fAtc4=-1; STATE.timeRange='mat';
   STATE.rendered.clear();
   renderSection(STATE.section);
 }
@@ -5035,7 +5061,7 @@ function showSection(name) {
     'zeta-opp':'Zeta Opportunity Analysis','winners':'Winners & Losers',
     'concentration':'Market Concentration','scoring':'Opportunity Scoring',
     'forecast':'Forecasting Center','alerts':'Alert Center',
-    'recommendations':'Executive Recommendations'
+    'insights':'AI Insights','recommendations':'Executive Recommendations'
   };
   document.getElementById('tb-title').textContent=titles[name]||name;
   renderSection(name);
@@ -5063,6 +5089,7 @@ function renderSection(name) {
   else if(name==='scoring') renderScoring();
   else if(name==='forecast') renderForecast();
   else if(name==='alerts') renderAlerts();
+  else if(name==='insights') renderInsights();
   else if(name==='recommendations') renderRecommendations();
 }
 
@@ -5102,7 +5129,6 @@ function buildCascadeIndex() {
 }
 
 function rebuildSelectFull(sel, lookup) {
-  if(!sel) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">All</option>';
   lookup.forEach((n,i) => {
@@ -5154,7 +5180,7 @@ function cascadeFromDm1() {
 }
 
 function cascadeFromDm2() {
-  const dm1Raw  = (document.getElementById('f-dm1')||{value:''}).value;
+  const dm1Raw  = document.getElementById('f-dm1').value;
   const dm2Raw  = document.getElementById('f-dm2').value;
   const atc4Sel = document.getElementById('f-atc4');
 
@@ -5185,11 +5211,6 @@ function populateFilters() {
   rebuildSelectFull(document.getElementById('f-dm1'),  LOOKUPS.dm1s);
   rebuildSelectFull(document.getElementById('f-atc4'), LOOKUPS.atc4s);
   rebuildSelectFull(document.getElementById('f-dm2'),  LOOKUPS.dm2s);
-  // Add "All Markets" label to DM1 select
-  const dm1El = document.getElementById('f-dm1');
-  if(dm1El && dm1El.options.length > 0 && dm1El.options[0].value !== '') {
-    dm1El.insertBefore(new Option('All Markets',''), dm1El.options[0]);
-  }
   // BU dropdown — from real CSV column
   const buOpts = '<option value="">All BUs</option>' +
     LOOKUPS.bus.map(b=>`<option value="${b}">${b}</option>`).join('');
