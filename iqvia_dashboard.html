@@ -1821,7 +1821,7 @@ function renderCorpGrowth() {
     if(flat[i]!==selCorpIdx) continue;
     const p=flat[i+1],t=flat[i+2],a=flat[i+3],d1=flat[i+4];
     const d2=flat[i+5],lcv=flat[i+6],su=flat[i+7];
-    if(filterFn && !filterFn(flat[i],p,t,a,d1,d2,flat[i+LINEI],flat[i+BUCI])) continue;
+    const _ff = dimFilter(); if(_ff && !_ff(flat[i],p,t,a,d1,d2,flat[i+LINEI],flat[i+BUCI])) continue;
     if(curPidxs.has(t)){
       corpLcvCur+=lcv; corpSuCur+=su;
       const vp=prodCur.get(p)||{lcv:0,su:0}; vp.lcv+=lcv; vp.su+=su; prodCur.set(p,vp);
@@ -3872,7 +3872,8 @@ function renderZetaComp() {
         <tbody>
         ${[zetaEntry,...shareGainers].filter(x=>x.shareChgPp>0).sort((a,b)=>b.shareChgPp-a.shareChgPp).slice(0,8).map((x,i)=>{
           const isZeta=x.c===ZETA_IDX;
-          return `<tr ${isZeta?`style="${hl2}"`:''}><td>${i+1}</td>
+          const trAttr=isZeta?'style="'+hl2+'"':'';
+          return `<tr ${trAttr}><td>${i+1}</td>
           <td style="font-weight:${isZeta?700:400}">${(LOOKUPS.corps[x.c]||'').substring(0,22)}${isZeta?' ⭐':''}</td>
           <td><span class="badge badge-up">+${x.shareChgPp.toFixed(2)}pp</span></td>
           <td>${fmtGrowth(x.gr)}</td></tr>`;
@@ -3887,7 +3888,8 @@ function renderZetaComp() {
         <tbody>
         ${[zetaEntry,...shareLosers].filter(x=>x.shareChgPp<0).sort((a,b)=>a.shareChgPp-b.shareChgPp).slice(0,8).map((x,i)=>{
           const isZeta=x.c===ZETA_IDX;
-          return `<tr ${isZeta?`style="${hl2}"`:''}><td>${i+1}</td>
+          const trAttr=isZeta?'style="'+hl2+'"':'';
+          return `<tr ${trAttr}><td>${i+1}</td>
           <td style="font-weight:${isZeta?700:400}">${(LOOKUPS.corps[x.c]||'').substring(0,22)}${isZeta?' ⭐':''}</td>
           <td><span class="badge badge-down">${x.shareChgPp.toFixed(2)}pp</span></td>
           <td>${fmtGrowth(x.gr)}</td></tr>`;
