@@ -6464,6 +6464,46 @@ function tgtTab(tab) {
   if(b2){b2.style.color=tab==='dm2'?'var(--acc1)':'var(--txt2)';b2.style.borderBottomColor=tab==='dm2'?'var(--acc1)':'transparent';b2.style.fontWeight=tab==='dm2'?'600':'400';}
 }
 
+
+  // Pre-computed Zeta market share actuals from Zeta_Market_Analysis_Apr2026.xlsx
+  // Used as fallback for products missing from the flat data array.
+  // Keys are UPPERCASE market names; values are fractions (e.g. 0.054 = 5.4%).
+  var MARKET_ACTUALS = {
+    'A10P1 SGLT2 INHIB A-DIAB PLAIN':0.113,
+    'A10P3 SGLT2 INH & BIGUAN COMBS':0.030,
+    'A10P5 SGLT2 INH&DPP-IV INH COM':0.459,
+    'A10P9 SGLT2 INH A-DIAB COM OTH':0.501,
+    'ALPHA AMYLASE LIQUIED FORM':0.001,
+    'APIXPAN LOW DOSE':0.152,
+    'ANTIHISTAMINC LIQUID_BILASTEGIC':0.011,
+    'ANTIHISTAMINC TABLET_BILASTEGIC':0.009,
+    'BELASTINE_CETRIZINE TAB MKT':0.039,
+    'BREXPIPRAZOLE_MKT':0.192,
+    'CHC SELECTED ITEMS':0.077,
+    'DULOXETINE_60 MG  _SDUXONORZET 60':0.011,
+    'DULOXETINE 20_30 DIXONORZET MKET':0.016,
+    'ELEMBOSIS 2.5 MKT TOTAL':0.096,
+    'ELEMBOSIS MKT 1 (APIX_5MG)':0.175,
+    'ELEMBOSIS_MKT':0.128,
+    'ESOMEPRAZOLE SACHET':0.858,
+    'ESOMEPRAZOLE | SODIUM BICARB':0.001,
+    'ETORICOXIB 60_90_120 COXIREZET MKT':0.016,
+    'FLEXETA UC II TAB & CAP':0.025,
+    'LACOSAMIDE_MKT':0.032,
+    'NEXIROAOVA_ROSUVASTATIN MKT':0.009,
+    'ORAL SELECTED ANTIHISTAMIN,LEVOCETRIZIN , EBASTIN .. CETRIZIN , FEXOFENADIN,BILASTIN':0.017,
+    'P-CAB_MKT':0.173,
+    'PPI _ORAL_SOLID FORM':0.064,
+    'PPI_SOD BICARB':0.033,
+    'SELECTED HERBAL PRODUCT':0.016,
+    'SELECTED OTH W HEALING _MEDIHYALO':0.054,
+    'ZEKARDOVAL (VALSRTAN DUAL MKT)':0.017,
+    'ZETACOLEST PLUS BEMPEDOIC ACID | EZETIMIBE':0.953,
+    'ZETACOLEST_BEPEDOIC ACID ONLY':0.879,
+    'ZKARDOVAL HCT (VALSARTAN TRIPLE)':0.001,
+    'ZKARDOVAL_MKT':0.009
+  };
+
 function renderTargetAchievement() {
   var ref = STATE.fRefMonth!=null ? STATE.fRefMonth : NP-1;
   var matPidxs = new Set();
@@ -6497,22 +6537,39 @@ function renderTargetAchievement() {
     var pIdx=LOOKUPS.prods.findIndex(function(p){return p&&p.toUpperCase().trim()===t.prod.toUpperCase().trim();});
     var d1Idx=LOOKUPS.dm1s.findIndex(function(d){return d&&d.toUpperCase().trim()===t.dm1.toUpperCase().trim();});
     var d2Idx=LOOKUPS.dm2s.findIndex(function(d){return d&&d.toUpperCase().trim()===t.dm2.toUpperCase().trim();});
-    var noData1=d1Idx<0||pIdx<0, noData2=d2Idx<0||pIdx<0;
+    var isNew1=d1Idx<0||pIdx<0, isNew2=d2Idx<0||pIdx<0;
+    var isPreComp1=false, isPreComp2=false;
     var actualDm1=null,achieveDm1=null,gapDm1=null;
-    if(!noData1){
+    if(!isNew1){
       var zt=zetaProdDm1.get(pIdx+'_'+d1Idx)||{lcv:0,su:0};
       var tt=dm1TotMap.get(d1Idx)||{lcv:0,su:0};
       actualDm1=gV(tt)>0?gV(zt)/gV(tt):0;
       if(t.tgtDm1!=null){achieveDm1=t.tgtDm1>0?(actualDm1/t.tgtDm1)*100:null;gapDm1=(actualDm1-t.tgtDm1)*100;}
+    } else {
+      var mk1=t.dm1.toUpperCase().trim();
+      if(MARKET_ACTUALS[mk1]!=null){
+        actualDm1=MARKET_ACTUALS[mk1]; isPreComp1=true;
+        if(t.tgtDm1!=null){achieveDm1=t.tgtDm1>0?(actualDm1/t.tgtDm1)*100:null;gapDm1=(actualDm1-t.tgtDm1)*100;}
+      } else if(t.tgtDm1!=null){
+        actualDm1=0; achieveDm1=0; gapDm1=-(t.tgtDm1*100);
+      }
     }
     var actualDm2=null,achieveDm2=null,gapDm2=null;
-    if(!noData2){
+    if(!isNew2){
       var zt2=zetaProdDm2.get(pIdx+'_'+d2Idx)||{lcv:0,su:0};
       var tt2=dm2TotMap.get(d2Idx)||{lcv:0,su:0};
       actualDm2=gV(tt2)>0?gV(zt2)/gV(tt2):0;
       if(t.tgtDm2!=null){achieveDm2=t.tgtDm2>0?(actualDm2/t.tgtDm2)*100:null;gapDm2=(actualDm2-t.tgtDm2)*100;}
+    } else {
+      var mk2=t.dm2.toUpperCase().trim();
+      if(MARKET_ACTUALS[mk2]!=null){
+        actualDm2=MARKET_ACTUALS[mk2]; isPreComp2=true;
+        if(t.tgtDm2!=null){achieveDm2=t.tgtDm2>0?(actualDm2/t.tgtDm2)*100:null;gapDm2=(actualDm2-t.tgtDm2)*100;}
+      } else if(t.tgtDm2!=null){
+        actualDm2=0; achieveDm2=0; gapDm2=-(t.tgtDm2*100);
+      }
     }
-    return Object.assign({},t,{pIdx:pIdx,d1Idx:d1Idx,d2Idx:d2Idx,noData1:noData1,noData2:noData2,
+    return Object.assign({},t,{pIdx:pIdx,d1Idx:d1Idx,d2Idx:d2Idx,isNew1:isNew1,isNew2:isNew2,isPreComp1:isPreComp1,isPreComp2:isPreComp2,
       actualDm1:actualDm1,achieveDm1:achieveDm1,gapDm1:gapDm1,
       actualDm2:actualDm2,achieveDm2:achieveDm2,gapDm2:gapDm2});
   });
@@ -6520,9 +6577,8 @@ function renderTargetAchievement() {
   function ragCol(a){if(a==null)return '#9da8c5';if(a>=100)return 'var(--acc2)';if(a>=80)return '#f59e0b';return 'var(--acc3)';}
   function ragIcon(a){if(a==null)return '⚪';if(a>=100)return '🟢';if(a>=80)return '🟡';return '🔴';}
 
-  function ragBadge(achieve,tgt,noData){
+  function ragBadge(achieve,tgt){
     if(tgt==null) return '<span style="background:rgba(157,168,197,.15);color:var(--txt3);padding:2px 8px;border-radius:10px;font-size:11px">TBD</span>';
-    if(noData) return '<span style="background:rgba(93,103,140,.15);color:var(--txt3);padding:2px 8px;border-radius:10px;font-size:11px">New Launch</span>';
     if(achieve==null) return '<span style="color:var(--txt3)">—</span>';
     var col=ragCol(achieve);
     return '<span style="background:'+col+'22;color:'+col+';padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid '+col+'44">'+ragIcon(achieve)+' '+achieve.toFixed(0)+'%</span>';
@@ -6530,14 +6586,14 @@ function renderTargetAchievement() {
 
   function fPct(v){return v!=null?(v*100).toFixed(1)+'%':'—';}
 
-  function gapCell(gap,noData){
-    if(noData||gap==null) return '<td style="text-align:center;color:var(--txt3)">—</td>';
+  function gapCell(gap){
+    if(gap==null) return '<td style="text-align:center;color:var(--txt3)">—</td>';
     var col=gap>=0?'var(--acc2)':'var(--acc3)';
     return '<td style="text-align:center;color:'+col+';font-weight:600">'+(gap>=0?'+':'')+gap.toFixed(1)+' pp</td>';
   }
 
-  function bulletBar(actual,tgt,noData){
-    if(noData||actual==null||tgt==null) return '<div style="width:100%;height:12px;background:rgba(93,103,140,.15);border-radius:6px"></div>';
+  function bulletBar(actual,tgt){
+    if(actual==null||tgt==null) return '<div style="width:100%;height:12px;background:rgba(93,103,140,.15);border-radius:6px"></div>';
     var maxV=Math.max(actual,tgt)*1.25||0.01;
     var aPct=Math.min(100,actual/maxV*100);
     var tPct=Math.min(99,tgt/maxV*100);
@@ -6554,19 +6610,23 @@ function renderTargetAchievement() {
     var achieve=isDm1?r.achieveDm1:r.achieveDm2;
     var gap=isDm1?r.gapDm1:r.gapDm2;
     var tgt=isDm1?r.tgtDm1:r.tgtDm2;
-    var noData=isDm1?r.noData1:r.noData2;
+    var isNew=isDm1?r.isNew1:r.isNew2;
     var mkt=isDm1?r.dm1:r.dm2;
-    var lc=achieve!=null?ragCol(achieve):noData?'#5e6785':'#9da8c5';
+    var lc=achieve!=null?ragCol(achieve):'#9da8c5';
+    var isPreComp=isDm1?r.isPreComp1:r.isPreComp2;
     var row='<tr style="border-left:3px solid '+lc+'">';
-    row+='<td style="font-weight:600;white-space:nowrap">'+r.prod+'</td>';
+    row+='<td style="font-weight:600;white-space:nowrap">'+r.prod
+      +(isNew&&!isPreComp?' <span title="New launch - no data in source" style="font-size:10px;background:rgba(76,110,245,.15);color:var(--acc1);padding:1px 5px;border-radius:4px;font-weight:400">NEW</span>':'')
+      +(isPreComp?' <span title="From market analysis (pre-computed)" style="font-size:10px;background:rgba(16,185,129,.15);color:#10b981;padding:1px 5px;border-radius:4px;font-weight:400">≈</span>':'')
+      +'</td>';
     row+='<td style="color:var(--txt2);font-size:12px">'+r.bu+'</td>';
     row+='<td style="color:var(--txt2);font-size:12px">'+r.line+'</td>';
     row+='<td style="font-size:11px;color:var(--txt2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+mkt+'">'+mkt.substring(0,28)+(mkt.length>28?'…':'')+'</td>';
     row+='<td style="text-align:center">'+(tgt!=null?(tgt*100).toFixed(1)+'%':'<span style="color:var(--txt3)">TBD</span>')+'</td>';
-    row+='<td style="text-align:center">'+(noData?'<span style="color:var(--txt3);font-size:11px">No Data</span>':fPct(actual))+'</td>';
-    row+='<td style="min-width:110px;padding:8px 6px">'+bulletBar(actual,tgt,noData)+'</td>';
-    row+='<td style="text-align:center">'+ragBadge(achieve,tgt,noData)+'</td>';
-    row+=gapCell(gap,noData);
+    row+='<td style="text-align:center">'+fPct(actual)+'</td>';
+    row+='<td style="min-width:110px;padding:8px 6px">'+bulletBar(actual,tgt)+'</td>';
+    row+='<td style="text-align:center">'+ragBadge(achieve,tgt)+'</td>';
+    row+=gapCell(gap);
     row+='</tr>';
     return row;
   }
@@ -6597,11 +6657,11 @@ function renderTargetAchievement() {
   }
 
   var tracked=rows.filter(function(r){return r.tgtDm1!=null;});
-  var withData=tracked.filter(function(r){return !r.noData1&&r.achieveDm1!=null;});
+  var withData=tracked.filter(function(r){return r.achieveDm1!=null;});
   var onTarget=withData.filter(function(r){return r.achieveDm1>=100;}).length;
   var nearTarget=withData.filter(function(r){return r.achieveDm1>=80&&r.achieveDm1<100;}).length;
   var belowTarget=withData.filter(function(r){return r.achieveDm1<80;}).length;
-  var newLaunch=tracked.filter(function(r){return r.noData1;}).length;
+  var newLaunch=tracked.filter(function(r){return r.isNew1&&!r.isPreComp1;}).length;
   var tbd=rows.filter(function(r){return r.tgtDm1==null;}).length;
   var avgAch=withData.length?withData.reduce(function(s,r){return s+r.achieveDm1;},0)/withData.length:null;
   var best=withData.length?withData.reduce(function(a,b){return a.achieveDm1>b.achieveDm1?a:b;}):null;
@@ -6657,6 +6717,7 @@ function renderTargetAchievement() {
     +'<span>🔴 Below Target (&lt;80%)</span>'
     +'<span style="color:var(--txt3)">⚪ TBD / New Launch</span>'
     +'<span style="color:var(--txt3)">│ line = target reference</span>'
+    +'<span style="color:#10b981;margin-left:8px">≈ pre-computed from market analysis</span>'
     +'</div>';
 
   // Tab toggle
@@ -6671,7 +6732,7 @@ function renderTargetAchievement() {
   h+='<div style="margin-top:16px;padding:12px 16px;background:rgba(93,103,140,.08);border-radius:8px;font-size:12px;color:var(--txt2)">'
     +'<strong>Notes:</strong> Achievement = Actual MS% ÷ Target MS% × 100. '
     +'Gap = Actual minus Target in pp. '
-    +'"New Launch" = product / market not yet in IQVIA data (actual will populate as data is reported). '
+    +'"NEW" badge = new launch not yet captured in IQVIA — actual shows 0% baseline; will update as data is reported. '
     +'"TBD" = no CY 2026 target defined. '
     +'Period: MAT '+periodLbl+'. Metric: '+ml+'.'
     +'</div>';
@@ -7099,3 +7160,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+                          
