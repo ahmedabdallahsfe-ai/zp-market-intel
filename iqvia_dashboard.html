@@ -6505,9 +6505,8 @@ function tgtTab(tab) {
   };
 
 function renderTargetAchievement() {
-  var ref = STATE.fRefMonth!=null ? STATE.fRefMonth : NP-1;
-  var matPidxs = new Set();
-  for(var mi=Math.max(0,ref-11); mi<=ref; mi++) matPidxs.add(mi);
+  var pidxs = getPeriodIndices(STATE.timeRange);
+  var rangeLabel = {mat:'MAT',ytd:'YTD',curr:'Month',all:'All Time','3m':'3M','6m':'6M'}[STATE.timeRange]||STATE.timeRange;
 
   var N=flat.length, metric=STATE.metric, ml=metric==='lcv'?'LCV':'SU';
   var zetaIdx=LOOKUPS.corps.findIndex(function(c){return c&&c.toUpperCase().includes('ZETA PHARM');});
@@ -6516,7 +6515,7 @@ function renderTargetAchievement() {
   var zetaProdDm1=new Map(), zetaProdDm2=new Map();
 
   for(var i=0;i<N;i+=10){
-    if(!matPidxs.has(flat[i+TI])) continue;
+    if(!pidxs.has(flat[i+TI])) continue;
     var corp=flat[i+CI],prod=flat[i+PI],d1=flat[i+D1I],d2=flat[i+D2I];
     var lcv=flat[i+LI],su=flat[i+SI];
     if(!dm1TotMap.has(d1)) dm1TotMap.set(d1,{lcv:0,su:0});
@@ -6670,7 +6669,7 @@ function renderTargetAchievement() {
 
   var h='<div class="section-header"><h2>🎯 Target Market Share Achievement — CY 2026</h2>'
     +'<div style="display:flex;gap:8px;align-items:center">'
-    +'<span style="font-size:12px;color:var(--txt2)">MAT '+periodLbl+' · '+ml+'</span>'
+    +'<span style="font-size:12px;color:var(--txt2)">'+rangeLabel+' '+periodLbl+' · '+ml+'</span>'
     +'<button onclick="showSection(\'executive\')" style="background:var(--acc1);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer">← Executive Summary</button>'
     +'</div></div>';
 
@@ -6690,7 +6689,7 @@ function renderTargetAchievement() {
     +'<div class="kpi-sub">need intervention</div></div>';
   h+='<div class="kpi-card"><div class="kpi-label">Avg Achievement</div>'
     +'<div class="kpi-val" style="color:'+(avgAch!=null?ragCol(avgAch):'var(--txt1)')+'">'+(avgAch!=null?avgAch.toFixed(0)+'%':'—')+'</div>'
-    +'<div class="kpi-sub">'+(newLaunch?newLaunch+' new launch':'')+' · '+tbd+' TBD (excl.)</div></div>';
+    +'<div class="kpi-sub">'+(newLaunch?newLaunch+' new launch':'')+' · '+tbd+' TBD excl.</div></div>';
   h+='</div>';
 
   // Best / Worst callout
@@ -7154,10 +7153,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sb) sb.classList.add('collapsed');
   }
   const exec = document.getElementById('s-executive');
-  if(exec) exec.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:300px;flex-direction:column;gap:16px"><div style="font-size:40px">&#x23F3;</div><div style="font-size:15px;color:var(--txt2);font-weight:600">Loading IQVIA Egypt Market Intelligence...</div><div style="font-size:12px;color:var(--txt3)">134,802 records &middot; 64 months</div><div style="margin-top:8px;font-size:11px;color:var(--txt3)">Decompressing and initialising engine...</div></div>';
-  setTimeout(loadData, 50);
-});
-</script>
-</body>
-</html>
-                          
+  if(exec) exec.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:300px;flex-direction:column;gap:16px"><div style="font-size:40px">&#x23F3;</div><div style="font-size:15px;color:var(--txt2);font-weight:600">Loading IQVIA Egypt Market Intelligence...</div><div style="font-size:12px;color:var(--txt3)">134,802 records &middot; 64 months</div><div style="margin-top:8px;font-size:11px;color:var(--txt3)">Decompressing and initialising engine...</d
