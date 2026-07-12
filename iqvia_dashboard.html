@@ -5518,14 +5518,94 @@ function renderBCG() {
     if (_el) _el.textContent = 'Top 60 Zeta products by ' + metric.toUpperCase() +
       ' | Cutoffs: X=0.5x · LCV CAGR=' + mktCAGR_lcv.toFixed(1) + '% · SU CAGR=' + mktCAGR_su.toFixed(1) + '%';
 
+    // Toggle helper — re-exposed on every render
+    window._bcgExp = function(n) {
+      var e = document.getElementById('bcg-exp-' + n);
+      if (e) e.style.display = e.style.display === 'none' ? 'table-row' : 'none';
+    };
+
     _el = document.getElementById('bcg-tbl-body');
     if (_el) {
-      _el.innerHTML = bcgData.slice(0, 60).map(function(x) {
-        var rms  = isLcv ? x.rmsLcv : x.rmsSu;
-        var cagr = isLcv ? x.cagrLcv : x.cagrSu;
-        var bcg  = classify(rms, cagr, yCut);
-        return '<tr>' +
-          '<td style="font-weight:600;color:var(--txt1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + x.prodName + '">' + x.prodName + '</td>' +
+      _el.innerHTML = bcgData.slice(0, 60).map(function(x, idx) {
+        var rms       = isLcv ? x.rmsLcv : x.rmsSu;
+        var cagr      = isLcv ? x.cagrLcv : x.cagrSu;
+        var bcg       = classify(rms, cagr, yCut);
+        var rowId     = 'bcg-exp-' + idx;
+        var rmsAbove  = rms >= rmsThreshold;
+        var cagrAbove = cagr >= yCut;
+        var rmsStr    = (rms * 100).toFixed(1) + '%';
+        var cagrStr   = (cagr >= 0 ? '+' : '') + cagr.toFixed(1) + '%';
+        var yCutStr   = (yCut >= 0 ? '+' : '') + yCut.toFixed(1) + '%';
+        var mLbl      = metric.toUpperCase();
+        var why, action, forward;
+
+        if (rmsAbove && cagrAbove) {
+          why     = 'RMS <strong>' + rmsStr + '</strong> ≥ 0.5x → strong market position. ' +
+                    mLbl + ' CAGR <strong>' + cagrStr + '</strong> ≥ market avg ' + yCutStr + ' → fast-growing market.';
+          action  = 'Invest aggressively to defend and grow leadership. High strategic priority.';
+          forward = 'Risk: market slowdown shifts this to a Cash Cow. Monitor CAGR quarterly and protect RMS.';
+        } else if (rmsAbove) {
+          why     = 'RMS <strong>' + rmsStr + '</strong> ≥ 0.5x → strong market position. ' +
+                    mLbl + ' CAGR <strong>' + cagrStr + '</strong> below market avg ' + yCutStr + ' → maturing / slow market.';
+          action  = 'Harvest profits. Protect share with minimal incremental investment.';
+          forward = 'Risk: declining RMS would move this to a Dog. Defend position without over-spending.';
+        } else if (cagrAbove) {
+          var curV  = isLcv ? x.lcv : x.su;
+          var ldrV  = rms > 0 ? curV / rms : 0;
+          var gap   = ldrV * rmsThreshold - curV;
+          var gStr  = gap > 0
+            ? ' — Zeta needs <strong>+' + Math.round(gap).toLocaleString() + ' more ' + mLbl + '</strong> in this market to cross 0.5x.'
+            : '.';
+          why     = 'RMS <strong>' + rmsStr + '</strong> below 0.5x → weak market position, despite ' +
+                    'fast-growing market (' + mLbl + ' CAGR <strong>' + cagrStr + '</strong> ≥ avg ' + yCutStr + ').';
+          action  = 'Decision point: invest now to win share, or exit before market matures.';
+          forward = 'To become a ⭐ Star: push RMS above 0.5x' + gStr;
+        } else {
+          var curV2 = isLcv ? x.lcv : x.su;
+          var ldrV2 = rms > 0 ? curV2 / rms : 0;
+          var gap2  = ldrV2 * rmsThreshold - curV2;
+          var gStr2 = gap2 > 0
+            ? ' — Zeta needs <strong>+' + Math.round(gap2).toLocaleString() + ' more ' + mLbl + '</strong> to cross 0.5x.'
+            : '.';
+          why     = 'RMS <strong>' + rmsStr + '</strong> below 0.5x → weak position. ' +
+                    mLbl + ' CAGR <strong>' + cagrStr + '</strong> below market avg ' + yCutStr + ' → slow / declining market.';
+          action  = 'Rationalize. Consider exit unless strategically critical to the portfolio.';
+          forward = 'To move to ❓ Question Mark: RMS must reach 0.5x' + gStr2 +
+                    ' Market must also accelerate above ' + yCutStr + ' to reach Star territory.';
+        }
+
+        var expRow =
+          '<tr id="' + rowId + '" style="display:none;background:rgba(93,103,140,.07)">' +
+          '<td colspan="8" style="padding:14px 20px;border-top:none">' +
+          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:18px;font-size:12px;line-height:1.75">' +
+            '<div>' +
+              '<div style="color:' + bcg.color + ';font-weight:700;font-size:13px;margin-bottom:5px">' +
+                bcg.label + '  —  ' + x.prodName +
+              '</div>' +
+              '<div style="color:var(--txt3);font-size:11px;margin-bottom:8px">Market: ' + x.dm1Name + '</div>' +
+              '<div><span style="color:rgba(255,255,255,.4);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em">WHY THIS QUADRANT&nbsp;&nbsp;</span>' +
+                '<span style="color:var(--txt2)">' + why + '</span></div>' +
+            '</div>' +
+            '<div style="border-left:1px solid var(--border);padding-left:16px">' +
+              '<div style="color:#f59e0b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">' +
+                '⚡ Strategic Action' +
+              '</div>' +
+              '<div style="color:var(--txt1)">' + action + '</div>' +
+            '</div>' +
+            '<div style="border-left:1px solid var(--border);padding-left:16px">' +
+              '<div style="color:var(--acc1);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">' +
+                '➡ Path Forward' +
+              '</div>' +
+              '<div style="color:var(--txt2)">' + forward + '</div>' +
+            '</div>' +
+          '</div>' +
+          '</td></tr>';
+
+        var mainRow =
+          '<tr onclick="window._bcgExp(' + idx + ')" style="cursor:pointer" title="Click to see why this product is in this quadrant">' +
+          '<td style="font-weight:600;color:var(--txt1);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + x.prodName + '">' +
+            x.prodName + ' <span style="color:var(--txt3);font-size:9px">▼</span>' +
+          '</td>' +
           '<td style="color:var(--txt3);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + x.dm1Name + '">' + x.dm1Name + '</td>' +
           '<td><span style="background:' + bcg.color + '22;color:' + bcg.color + ';border:1px solid ' + bcg.color + '55;padding:2px 8px;border-radius:12px;font-size:11px;white-space:nowrap">' + bcg.label + '</span></td>' +
           '<td style="text-align:right">' + fmtLCV(x.lcv) + '</td>' +
@@ -5534,6 +5614,8 @@ function renderBCG() {
           '<td style="text-align:right;color:' + (x.cagrLcv >= mktCAGR_lcv ? '#36c994' : '#ff9f45') + ';font-weight:600">' + (x.cagrLcv >= 0 ? '+' : '') + x.cagrLcv.toFixed(1) + '%</td>' +
           '<td style="text-align:right;color:' + (x.cagrSu >= mktCAGR_su ? '#36c994' : '#ff9f45') + '">' + (x.cagrSu >= 0 ? '+' : '') + x.cagrSu.toFixed(1) + '%</td>' +
           '</tr>';
+
+        return mainRow + expRow;
       }).join('');
     }
   };
