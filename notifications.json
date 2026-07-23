@@ -1,5 +1,5 @@
 {
-  "_generated": "2026-07-23T15:14:55",
+  "_generated": "2026-07-23T15:22:19",
   "_period": "2026-05",
   "version": 1,
   "notifications": [
@@ -8,7 +8,7 @@
       "type": "refresh",
       "title": "Dashboard Updated — 2026-05",
       "body": "New IQVIA data available. Market: 9.49B EGP | Zeta: 289.5M EGP | Share: 3.05% (📈 expanding)",
-      "timestamp": "2026-07-23 15:14",
+      "timestamp": "2026-07-23 15:22",
       "for_roles": [
         "admin",
         "executive",
@@ -21,7 +21,7 @@
       "type": "bu_alert",
       "title": "🔴 Cluster BU — Share -4.02pp",
       "body": "Cluster: Zeta share 4.98% (down from 9.00%). Sales: 41.9M EGP",
-      "timestamp": "2026-07-23 15:14",
+      "timestamp": "2026-07-23 15:22",
       "bu": "Cluster",
       "for_roles": [
         "admin",
@@ -34,7 +34,7 @@
       "type": "bu_alert",
       "title": "🟢 GIT BU — Share +6.49pp",
       "body": "GIT: Zeta share 9.80% (up from 3.30%). Sales: 120.2M EGP",
-      "timestamp": "2026-07-23 15:14",
+      "timestamp": "2026-07-23 15:22",
       "bu": "GIT",
       "for_roles": [
         "admin",
@@ -47,7 +47,7 @@
       "type": "bu_alert",
       "title": "🔴 DIAB BU — Share -3.11pp",
       "body": "DIAB: Zeta share 22.72% (down from 25.82%). Sales: 118.4M EGP",
-      "timestamp": "2026-07-23 15:14",
+      "timestamp": "2026-07-23 15:22",
       "bu": "DIAB",
       "for_roles": [
         "admin",
