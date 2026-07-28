@@ -1,14 +1,14 @@
 {
-  "_generated": "2026-07-27T10:53:53",
-  "_period": "2026-05",
+  "_generated": "2026-07-28T15:19:06",
+  "_period": "2026-06",
   "version": 1,
   "notifications": [
     {
-      "id": "refresh_202605",
+      "id": "refresh_202606",
       "type": "refresh",
-      "title": "Dashboard Updated — 2026-05",
-      "body": "New IQVIA data available. Market: 9.49B EGP | Zeta: 289.5M EGP | Share: 3.05% (📈 expanding)",
-      "timestamp": "2026-07-27 10:53",
+      "title": "Dashboard Updated — 2026-06",
+      "body": "New IQVIA data available. Market: 10.87B EGP | Zeta: 407.0M EGP | Share: 3.74% (📈 expanding)",
+      "timestamp": "2026-07-28 15:19",
       "for_roles": [
         "admin",
         "executive",
@@ -17,11 +17,23 @@
       ]
     },
     {
-      "id": "bu_alert_cluster_202605",
+      "id": "share_alert_202606",
+      "type": "alert",
+      "title": "🟢 Market Share Alert — 2026-06",
+      "body": "Zeta gained 0.69pp market share vs prior period. Current: 3.74% | Prior: 3.05%",
+      "timestamp": "2026-07-28 15:19",
+      "for_roles": [
+        "admin",
+        "executive",
+        "analyst"
+      ]
+    },
+    {
+      "id": "bu_alert_cluster_202606",
       "type": "bu_alert",
-      "title": "🔴 Cluster BU — Share -3.86pp",
-      "body": "Cluster: Zeta share 4.82% (down from 8.68%). Sales: 42.2M EGP",
-      "timestamp": "2026-07-27 10:53",
+      "title": "🟢 Cluster BU — Share +2.05pp",
+      "body": "Cluster: Zeta share 6.87% (up from 4.82%). Sales: 60.8M EGP",
+      "timestamp": "2026-07-28 15:19",
       "bu": "Cluster",
       "for_roles": [
         "admin",
@@ -30,11 +42,11 @@
       ]
     },
     {
-      "id": "bu_alert_git_202605",
+      "id": "bu_alert_git_202606",
       "type": "bu_alert",
-      "title": "🟢 GIT BU — Share +6.49pp",
-      "body": "GIT: Zeta share 9.80% (up from 3.30%). Sales: 120.2M EGP",
-      "timestamp": "2026-07-27 10:53",
+      "title": "🟢 GIT BU — Share +1.71pp",
+      "body": "GIT: Zeta share 11.50% (up from 9.80%). Sales: 169.9M EGP",
+      "timestamp": "2026-07-28 15:19",
       "bu": "GIT",
       "for_roles": [
         "admin",
@@ -43,11 +55,24 @@
       ]
     },
     {
-      "id": "bu_alert_diab_202605",
+      "id": "bu_alert_chc_202606",
       "type": "bu_alert",
-      "title": "🔴 DIAB BU — Share -3.11pp",
-      "body": "DIAB: Zeta share 22.72% (down from 25.82%). Sales: 118.4M EGP",
-      "timestamp": "2026-07-27 10:53",
+      "title": "🔴 CHC BU — Share -2.99pp",
+      "body": "CHC: Zeta share 5.72% (down from 8.72%). Sales: 11.1M EGP",
+      "timestamp": "2026-07-28 15:19",
+      "bu": "CHC",
+      "for_roles": [
+        "admin",
+        "executive",
+        "bu_manager"
+      ]
+    },
+    {
+      "id": "bu_alert_diab_202606",
+      "type": "bu_alert",
+      "title": "🟢 DIAB BU — Share +5.59pp",
+      "body": "DIAB: Zeta share 28.30% (up from 22.72%). Sales: 165.3M EGP",
+      "timestamp": "2026-07-28 15:19",
       "bu": "DIAB",
       "for_roles": [
         "admin",
